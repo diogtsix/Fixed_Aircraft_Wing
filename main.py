@@ -18,4 +18,9 @@ print("Elements Airfoil:\n", elements_airfoil)
 
 pre = Preprocessor()
 
-print(pre.elementsAirfoil)
+
+print(pre.nodesAirfoil)
+
+
+for node in pre.nodeMatrix:
+    print(node.dof_id)
