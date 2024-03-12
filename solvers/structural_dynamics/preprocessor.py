@@ -7,13 +7,15 @@ class Preprocessor():
     
     def __init__(self, chordLength = 1.12, wing_length = 3.61, 
                  elementMaterial = Material, elementSurface = 0.0031, 
-                 numberOfAirfoils = 11):
+                 numberOfAirfoils = 11, forceValue = 0.5*1e3):
         
         self.chordLength = chordLength
         self.wing_length = wing_length
         self.elementMaterial = elementMaterial
         self.elementSurface = elementSurface
         self.numberOfAirfoils = numberOfAirfoils
+        self.forceValue = forceValue
+        self.dofsToDelete = self.boundaryConditions()
 
         
         self.elementMaterial = Material()
@@ -24,6 +26,8 @@ class Preprocessor():
         self.elementsAirfoil = elements_airfoil
           
         self.nodeMatrix = self.createWingNodeMatrix()
+        self.addForces()
+        
         self.elementMatrix = self.createWingElementMatrix()
         
     
@@ -104,8 +108,17 @@ class Preprocessor():
     
             airfoilElementMatrix.append([node_1, node_3, None])
     
-        return airfoilElementMatrix
+        
+    
+        # Function to find a Node in nodeMatrix by node_id
+        def find_node_by_id(self, node_id, nodeMatrix):
+            for node in nodeMatrix:
+                if node.node_id == node_id:
+                    return node
+            return None  # Return None if no matching node is found
 
+        return airfoilElementMatrix   
+    
     def createWingElementMatrix(self):
         
         # Initialize an empty list for wing elements
@@ -133,7 +146,19 @@ class Preprocessor():
             
                 # Append new element with global node IDs and original kind
                 elementsWing.append([global_node_id_1, global_node_id_2, kind])
+                
+                
+            # Add transverse beam elements between adjacent airfoils
+        transverse_nodes = [4, 5, 10, 11]  # Based on your MATLAB code
+        if self.numberOfAirfoils > 1:
+            for airfoil_index in range(self.numberOfAirfoils - 1):
+                for node_index in transverse_nodes:
+                    node_id_1 = get_global_node(node_index, airfoil_index, nodes_per_airfoil)
+                    node_id_2 = get_global_node(node_index, airfoil_index + 1, nodes_per_airfoil)
 
+                    # Transverse beams are kind 2 (assuming beams)
+                    elementsWing.append([node_id_1, node_id_2, 2])
+        
         # Now, elementsWing contains global indices for start and end nodes of each element, and the element type
         # To build the wingElementMatrix with Node objects, map global indices back to Node objects
         wingElementMatrix = []
@@ -146,12 +171,19 @@ class Preprocessor():
 
         return wingElementMatrix
 
-
-     
-    
-# Function to find a Node in nodeMatrix by node_id
-    def find_node_by_id(self, node_id, nodeMatrix):
-        for node in nodeMatrix:
-            if node.node_id == node_id:
-                return node
-        return None  # Return None if no matching node is found
+    def addForces(self):
+        
+        node_index = 0
+        for ii in range(self.numberOfAirfoils):
+            
+            self.nodeMatrix[4 + node_index].force = np.array([0, -self.forceValue, 0, 0 , 0, 0])
+            self.nodeMatrix[10 + node_index].force = np.array([0, -self.forceValue, 0, 0 , 0, 0])
+            node_index += 12
+            
+    def boundaryConditions(self):
+          
+        # Find Indexes for the matrices where the rigid dofs are [4 5 10 11]. Each node has 6 dofs so in total we want 24 indexes
+        indices =  np.concatenate([np.arange(j*6+1, j*6+1+6) for j in [3, 4, 9, 10]])
+        
+        
+        return indices

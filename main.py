@@ -21,12 +21,12 @@ print("Elements Airfoil:\n", elements_airfoil)
 pre = Preprocessor(numberOfAirfoils= 25, wing_length= 5)
 
 
-print(pre.elementsAirfoil)
+#print(pre.elementsAirfoil)
 
 
 for element in pre.elementMatrix:
     first_node = element[2]  # Get the first Node object from each row
-    print(first_node)
+    print(element)
     
     
   
@@ -47,7 +47,7 @@ def visualize_wing_3d(wingElementMatrix):
         z_values = [start_node.coords[2], end_node.coords[2]]
         
         # Plot a line between the start and end node of each element
-        ax.plot(x_values, y_values, z_values, 'b-', marker='o', markersize=5, linestyle='-', linewidth=1.5)
+        ax.plot(x_values, y_values, z_values, 'b', marker='o', markersize=5, linestyle='-', linewidth=1.5)
     
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
@@ -63,6 +63,6 @@ def visualize_wing_3d(wingElementMatrix):
     
     plt.show()
 
-
+print(pre.dofsToDelete)
 # Assuming wingElementMatrix is defined and populated as described earlier
 visualize_wing_3d(pre.elementMatrix)
