@@ -18,7 +18,7 @@ print("Elements Airfoil:\n", elements_airfoil)
 
 """
 
-pre = Preprocessor(numberOfAirfoils= 25, wing_length= 5)
+pre = Preprocessor()
 
 
 #print(pre.elementsAirfoil)
@@ -26,7 +26,7 @@ pre = Preprocessor(numberOfAirfoils= 25, wing_length= 5)
 
 for element in pre.elementMatrix:
     first_node = element[2]  # Get the first Node object from each row
-    print(element)
+    #print(element)
     
     
   
@@ -63,6 +63,9 @@ def visualize_wing_3d(wingElementMatrix):
     
     plt.show()
 
-print(pre.dofsToDelete)
+print(pre.totalDofs)
+print(pre.totalNodes)
+print(pre.totalElements)
+
 # Assuming wingElementMatrix is defined and populated as described earlier
 visualize_wing_3d(pre.elementMatrix)

@@ -30,6 +30,9 @@ class Preprocessor():
         
         self.elementMatrix = self.createWingElementMatrix()
         
+        self.totalNodes = len(self.nodeMatrix)
+        self.totalDofs = self.totalNodes*6
+        self.totalElements = len(self.elementMatrix)
     
     
     def createWingNodeMatrix(self):
