@@ -3,7 +3,7 @@ import numpy as np
 class Node():
     
     def __init__(self, coords=None, dof_id=None, 
-                 force=None, boundaryCondition=None):
+                 force=None, boundaryCondition=None, node_id = 1):
         
         """
         Initialize a Node instance.
@@ -28,3 +28,4 @@ class Node():
         self.dof_id = dof_id
         self.force = force
         self.boundaryCondition = boundaryCondition
+        self.node_id = node_id

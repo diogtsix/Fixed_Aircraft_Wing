@@ -44,7 +44,7 @@ def naca2D(chordLength, plotAirfoil = False):
     Y = points[:, 1] * L_chord
     
     # Prepare nodes_airfoil
-    nodes_airfoil_indices = [12, 14, 10, 16, 8, 18, 6, 20, 4, 22, 2, 0]  # MATLAB to Python index conversion
+    nodes_airfoil_indices = [12, 14, 10, 16, 8, 18, 6, 20, 4, 22, 2, 0]
     nodes_airfoil = np.zeros((12, 2))
     for i, idx in enumerate(nodes_airfoil_indices):
         nodes_airfoil[i, 0] = X[idx]

@@ -1,10 +1,10 @@
 
 
-class TrussElement():
+class BeamElement():
     """Represents a truss element in a structural system."""
     
     def __init__(self, material = None ,radius = None ,  length = 1, area = None, 
-                 node1 = None, node2 = None ):
+                 node1 = None, node2 = None , elementType = "beam"):
         
         """
         Initializes a new TrussElement instance with specified material, length, and cross-sectional area.
@@ -22,7 +22,8 @@ class TrussElement():
        
         self.length = length  # Length of the truss element in meters     
         self.node1 = node1 
-        self.node2 = node2   
+        self.node2 = node2  
+        self.elementType = elementType 
         
         if area is not None and radius is None:
             self.area = area
