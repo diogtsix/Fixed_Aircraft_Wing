@@ -89,5 +89,7 @@ xx2 = solve.x_eigenAnalysis[726, :]
 tt = solve.t_eigenAnalysis
 
 plt.plot(tt, xx2)
+
+W, Xvs, Yvs, Zvs = solve.frequencyResponse(step = 2)
 """
 

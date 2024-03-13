@@ -292,6 +292,7 @@ class Solver():
     
     def RayleighDamping(self):
         
+        # Damping factors for 1st and 6th eigenmode
         z1 = 0.01
         z6 = 0.02 
         
@@ -310,8 +311,6 @@ class Solver():
         # Calculate C
         self.C = ab[0]*self.M + ab[1]*self.K
 
-
-    
      
     def solve_with_Newmark(self):
         
@@ -339,3 +338,45 @@ class Solver():
         
         self.t_eigenAnalysis = t
         self.x_eigenAnalysis = x
+        
+    def frequencyResponse(self, max_freq = None,  dof_interest = 726, step = 0.5):
+        """
+        Generate the Amplitude - Frequency repsponse diagram for specific node
+        This diagram represent the steady state for harmonic load : F = F0 * sin(Omega * t) where omega = second eigenfrequency
+        """        
+        if max_freq is None:
+            max_freq = self.eigenfrequencies[5]
+            
+        W = np.arange(0, max_freq + step, step)  # Frequency range
+        num_freqs = len(W)
+        
+         # Initialize the arrays for vertices
+        Xvs = np.zeros(num_freqs)
+        Yvs = np.zeros(num_freqs)
+        Zvs = np.zeros(num_freqs)
+    
+        Fs = np.concatenate([np.zeros((self.F.shape[0], 1)), -self.F[:, np.newaxis]], axis=0)  # Assuming F is a column vector
+    
+        for i, omega in enumerate(W):
+            matrix = np.block([
+                [self.K - (omega**2) * self.M, omega * self.C],
+                [omega * self.C, (omega**2) * self.M - self.K]
+            ])
+        
+            v = np.linalg.solve(matrix, Fs)
+        
+            # Assuming the response vector v is split into cosine and sine parts
+            
+            v_c = v[:int(v.shape[0]/2)]  # Cosine part
+            v_s = v[int(v.shape[0]/2):]  # Sine part
+        
+            R = np.sqrt(v_c**2 + v_s**2)
+        
+            # Extract the response for specific DOFs
+            VS = R[dof_interest:dof_interest+3]  # Adjust indices for your DOFs of interest
+        
+            Xvs[i] = VS[0]
+            Yvs[i] = VS[1]
+            Zvs[i] = VS[2]
+        
+        return W, Xvs, Yvs, Zvs
