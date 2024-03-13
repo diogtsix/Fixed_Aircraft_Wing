@@ -74,12 +74,20 @@ visualize_wing_3d(pre.elementMatrix)
 """
 
 
-pre = Preprocessor()
+pre = Preprocessor(numberOfAirfoils= 11)
 
-solve = Solver(preprocessor= pre)
+solve = Solver(preprocessor= pre, timeStep= 0.0005, simulationTime= 0.8)
+"""
+solve.solve_with_Newmark()
+solve.solve_with_eigenAnalysis()
 
-#print(solve.K)
+x1 = solve.x_Newmark[727, :]
+x2 = solve.x_Newmark[726, :]
+t = solve.t_Newmark
+xx1 = solve.x_eigenAnalysis[727, :]
+xx2 = solve.x_eigenAnalysis[726, :]
+tt = solve.t_eigenAnalysis
 
-#K_inv = np.linalg.inv(solve.K)
-#v = K_inv @ solve.F
-print(np.linalg.det(solve.K))
+plt.plot(tt, xx2)
+"""
+

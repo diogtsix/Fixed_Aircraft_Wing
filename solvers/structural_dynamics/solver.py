@@ -2,12 +2,16 @@ import numpy as np
 from solvers.structural_dynamics.preprocessor import Preprocessor
 from dataobjects.barElement import BarElement
 from dataobjects.beamElement import BeamElement
+from scipy.linalg import eigh
+from Utilities.newmark import Newmark
+from Utilities.eigenAnalysis import eigenAnalysis
 
 class Solver():
     
     def __init__(self, preprocessor = Preprocessor(), 
                  barElement = BarElement(radius = 0.0316), 
-                 beamElement = BeamElement(radius = 0.0316)):
+                 beamElement = BeamElement(radius = 0.0316), 
+                 simulationTime = 5, timeStep = 0.05):
         
         self.preprocessor = preprocessor
         
@@ -18,11 +22,29 @@ class Solver():
         self.barElement = barElement
         self.beamElement = beamElement
         
-        self.K = None 
-        self.M = None 
-        self.F = None 
+        self.K = None # Stiffness matrix
+        self.M = None # Mass matrix
+        self.F = None # Force Vector
+        self.C = None # Damping matrix
+        self.eigenModes = None 
+        self.eigenfrequencies = None 
+        self.staticDisplacement =  None 
+        self.timeStep = timeStep
+        self.simulationTime = simulationTime
+        
+        self.t_Newmark = None  # time
+        self.x_Newmark = None # Displacement
+        self.dx_Newmark = None # Velocity
+        self.ddx_Newmark = None # Acceleration
+        
+        self.t_eigenAnalysis = None 
+        self.x_eigenAnalysis = None
         
         self.createGlobalMatrices()
+        
+        self.eigenAnalysis()
+        
+        self.RayleighDamping()
         
     
     def createGlobalMatrices(self):
@@ -65,16 +87,16 @@ class Solver():
             # Now construct the full matrices 
             self.stiffnessFullMatrix, self.massFullMatrix = self.createFullMatrices(LG, K, M, num_of_dofs)
             
-            # BUild the force vector 
-            self.forceVector = self.createForceVector()
+        # BUild the force vector 
+        self.forceVector = self.createForceVector()
             
-            self.K, self.M, self.F = self.removeDofs()
+        self.K, self.M, self.F = self.removeDofs()
             
-            self.K = 0.5 * (K + K.T) # Average for avoiding numerical errors
-            
-            
-            
-            
+        self.K = 0.5 * (self.K + self.K.T) # Average for avoiding numerical errors
+        # Calculate static displacement 
+        K_inv = np.linalg.inv(self.K)
+        self.staticDisplacement = K_inv @ self.F
+                   
     
     def KMBar3D(self, x1,y1,z1,x2,y2,z2):
         
@@ -240,6 +262,7 @@ class Solver():
 
         return T
     
+    
     def removeDofs(self):
         
         dofs_to_delete = np.array(self.preprocessor.dofsToDelete) - 1
@@ -256,3 +279,63 @@ class Solver():
         F = np.delete(self.forceVector, dofs_to_delete)
 
         return K, M, F
+    
+    
+    def eigenAnalysis(self):
+        eigenvalues, eigenvectors = eigh(self.K , self.M)
+        
+        eigenfrequencies = np.sqrt(eigenvalues)
+        
+        self.eigenModes = eigenvectors
+        self.eigenfrequencies = eigenfrequencies
+        
+    
+    def RayleighDamping(self):
+        
+        z1 = 0.01
+        z6 = 0.02 
+        
+        
+        # Define the matrix for the linear system
+        A = np.array([[1, self.eigenfrequencies[0]**2],  # eigs[0] is the first eigenvalue in Python (0-based indexing)
+                    [1, self.eigenfrequencies[5]**2]])  # eigs[5] is the sixth eigenvalue
+
+        # Define the right-hand side vector
+        b = np.array([[2*z1*self.eigenfrequencies[0]], 
+                    [2*z6*self.eigenfrequencies[5]]])
+
+        # Solve for ab
+        ab = np.linalg.solve(A, b)
+
+        # Calculate C
+        self.C = ab[0]*self.M + ab[1]*self.K
+
+
+    
+     
+    def solve_with_Newmark(self):
+        
+        # Initilize parameters for Newmark
+        a_newmark = 0.25
+        b_newmark = 0.5
+        n = self.K.shape[0] # Number of degrees of freedom
+        h = self.timeStep # Time Step
+        w = self.eigenfrequencies[1] # Angular Frequency
+        tf = self.simulationTime # Final Time 
+        
+        t, x, dx, ddx = Newmark(self.M, self.C, self.K, self.F, w, h, tf, a_newmark, b_newmark, n)
+        
+        self.t_Newmark = t  # time
+        self.x_Newmark = x # Displacement
+        self.dx_Newmark = dx # Velocity
+        self.ddx_Newmark = ddx # Acceleration
+    
+    def solve_with_eigenAnalysis(self):
+        
+    
+    
+        t, x = eigenAnalysis(self.M, self.C, self.K, self.F, self.eigenfrequencies, self.eigenModes, 
+                      self.timeStep, self.simulationTime)
+        
+        self.t_eigenAnalysis = t
+        self.x_eigenAnalysis = x
