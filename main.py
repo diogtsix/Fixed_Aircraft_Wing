@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from solvers.structural_dynamics.solver import Solver
 import numpy as np
+
+from solvers.structural_dynamics.postprocess import Postprocess
 # Example usage
 """"
 truss = TrussElement(radius=0.05, length=2.0)
@@ -77,6 +79,11 @@ visualize_wing_3d(pre.elementMatrix)
 pre = Preprocessor(numberOfAirfoils= 11)
 
 solve = Solver(preprocessor= pre, timeStep= 0.0005, simulationTime= 0.8)
+
+post = Postprocess(solver=solve)
+
+post.plotEigenModes(numberOfModes = 8, scaling_factor = 2)
+a = 2
 """
 solve.solve_with_Newmark()
 solve.solve_with_eigenAnalysis()
