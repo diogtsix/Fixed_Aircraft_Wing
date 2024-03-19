@@ -3,7 +3,8 @@ from dataobjects.naca_airfoil_generation    import naca2D
 from solvers.structural_dynamics.preprocessor import Preprocessor
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
+from solvers.structural_dynamics.solver import Solver
+import numpy as np
 # Example usage
 """"
 truss = TrussElement(radius=0.05, length=2.0)
@@ -16,7 +17,7 @@ nodes_airfoil, elements_airfoil = naca2D(chordLength=1.12 , plotAirfoil = True)
 print("Nodes Airfoil:\n", nodes_airfoil)
 print("Elements Airfoil:\n", elements_airfoil)
 
-"""
+
 
 pre = Preprocessor()
 
@@ -69,3 +70,26 @@ print(pre.totalElements)
 
 # Assuming wingElementMatrix is defined and populated as described earlier
 visualize_wing_3d(pre.elementMatrix)
+
+"""
+
+
+pre = Preprocessor(numberOfAirfoils= 11)
+
+solve = Solver(preprocessor= pre, timeStep= 0.0005, simulationTime= 0.8)
+"""
+solve.solve_with_Newmark()
+solve.solve_with_eigenAnalysis()
+
+x1 = solve.x_Newmark[727, :]
+x2 = solve.x_Newmark[726, :]
+t = solve.t_Newmark
+xx1 = solve.x_eigenAnalysis[727, :]
+xx2 = solve.x_eigenAnalysis[726, :]
+tt = solve.t_eigenAnalysis
+
+plt.plot(tt, xx2)
+
+W, Xvs, Yvs, Zvs = solve.frequencyResponse(step = 2)
+"""
+
