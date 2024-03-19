@@ -78,13 +78,21 @@ visualize_wing_3d(pre.elementMatrix)
 
 pre = Preprocessor(numberOfAirfoils= 11)
 
-solve = Solver(preprocessor= pre, timeStep= 0.0005, simulationTime= 0.8)
+solve = Solver(preprocessor= pre, timeStep= 0.005, simulationTime= 0.8)
+solve.solve_with_eigenAnalysis()
 
 post = Postprocess(solver=solve)
 
-post.plotEigenModes(numberOfModes = 8, scaling_factor = 2)
-a = 2
+#post.plotEigenModes(numberOfModes = 8, scaling_factor = 2)
+#post.simulation_displacements(scaling_factor= 3)
+
+post.frequencyResponse()
+
+
+
+
 """
+
 solve.solve_with_Newmark()
 solve.solve_with_eigenAnalysis()
 
