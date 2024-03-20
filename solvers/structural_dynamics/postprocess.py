@@ -5,12 +5,12 @@ from matplotlib.animation import FuncAnimation
 
 class Postprocess():
     
-    def __init__(self, solver):
+    def __init__(self, solver, ax_handle = None):
         
         
         self.solver = solver
         self.preprocessor = solver.preprocessor
-        
+        self.ax = ax_handle
         
 
     def plotEigenModes(self, numberOfModes, scaling_factor = 5):
