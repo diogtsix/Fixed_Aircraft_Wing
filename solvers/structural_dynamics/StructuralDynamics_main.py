@@ -6,12 +6,14 @@ from matplotlib.figure import Figure
 from PyQt5.QtWidgets import QRadioButton, QGroupBox, QHBoxLayout
 from solvers.structural_dynamics.preprocessor import Preprocessor
 from solvers.structural_dynamics.solver import Solver
+from solvers.structural_dynamics.postprocess import Postprocess
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Structural Dynamics Analysis")
+        self.animation = None 
         
         # Create a central widget
         self.central_widget = QWidget()
@@ -46,7 +48,7 @@ class MainWindow(QMainWindow):
         
         self.simulaton_time_input.setText("1")  # Default number of airfoils
         self.num_of_eigenmodes_input.setText("6")  # Default force value
-        self.scaling_factor_input.setText("2")  # Default timestep value
+        self.scaling_factor_input.setText("5")  # Default timestep value
         self.node_of_interest.setText("100")  # Default timestep value
 
         # Add inputs to parameters layout
@@ -84,7 +86,7 @@ class MainWindow(QMainWindow):
         simTime = float(self.simulaton_time_input.text()) 
         numOfEigenmodes = int(self.num_of_eigenmodes_input.text()) 
         scalingFactor =  float(self.scaling_factor_input.text())
-        nodeOfInterest =  float(self.node_of_interest.text())
+        nodeOfInterest =  int(self.node_of_interest.text())
 
         pre, solve = self.solve_model(num_of_airfoils, force, scalingFactor,timestep, 
                          simTime)
@@ -95,17 +97,18 @@ class MainWindow(QMainWindow):
             if self.eigenmode_button.isChecked():
                 # Run EigenMode plot simulation
                 
-                self.eigenmode_plots(num_of_airfoils, force, scalingFactor, numOfEigenmodes, pre, solve )
+                self.eigenmode_plots( scalingFactor, numOfEigenmodes, 
+                         solve)
                 
             elif self.frequency_response_button.isChecked():
                 # Run Frequency Response simulation
                 
-                self.frequency_response_plots(num_of_airfoils, force, scalingFactor, nodeOfInterest, pre, solve )
+                self.frequency_response_plots(nodeOfInterest, solve )
                 
             elif self.real_time_simulation_button.isChecked():
                 # Run Real Time simulation
                 
-                self.real_time_sim(num_of_airfoils, force, scalingFactor, timestep, simTime, pre, solve )
+                self.real_time_sim(scalingFactor, solve)
                 
                 
         except Exception as e:
@@ -113,30 +116,34 @@ class MainWindow(QMainWindow):
 
 
 
-    def real_time_sim(self,num_of_airfoils, force, scalingFactor, timestep, simTime, pre, solve ):
+    def real_time_sim(self, scalingFactor, solve ):
         
-    
-        # Example: update canvas with a plot
-        self.canvas.figure.clear()
-        ax = self.canvas.figure.subplots()
-        
-        
-        ax.plot([0, 1, 2], [0, num_of_airfoils, 0])  # Replace with your own data and plotting
-        ax.set_title("Real Time Simulation Wing")
-        
-        
+
+        post = Postprocess(solver=solve, ax_handle = self.canvas)
+        self.animation = post.simulation_displacements(scaling_factor= scalingFactor)
+      
         self.canvas.draw()
     
     
     
-    def frequency_response_plots(self,num_of_airfoils, force, scalingFactor, nodeOfInterest, 
-                                 pre, solve ):
-        pass
+    def frequency_response_plots(self,  dof_of_interest, 
+                                 solve ):
+        
+        post = Postprocess(solver=solve)
+        post.frequencyResponse(dofOfInterest= dof_of_interest)
+
     
-    def eigenmode_plots(self,num_of_airfoils, force, scalingFactor, numOfEigenmodes, 
-                        pre, solve ):
-        pass
     
+    
+    def eigenmode_plots(self, scalingFactor, numOfEigenmodes, 
+                         solve):
+        
+
+      
+        post = Postprocess(solver=solve)
+        post.plotEigenModes(numberOfModes = numOfEigenmodes, scaling_factor = scalingFactor)
+
+        
     def solve_model(self, num_of_airfoils, force, scalingFactor,timestep, 
                             simTime):
         
@@ -178,7 +185,8 @@ class MainWindow(QMainWindow):
     
     
 def main():
-    app = QApplication(sys.argv)
+    
+    app = QApplication.instance() or QApplication(sys.argv)
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())

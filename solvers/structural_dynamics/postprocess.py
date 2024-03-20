@@ -1,15 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
 
 class Postprocess():
     
-    def __init__(self, solver, ax_handle = None):
+    def __init__(self, solver, ax_handle = None ):
         
         
         self.solver = solver
         self.preprocessor = solver.preprocessor
         self.ax = ax_handle
+        self.animation = None
         
 
     def plotEigenModes(self, numberOfModes, scaling_factor = 5):
@@ -59,7 +61,7 @@ class Postprocess():
     
     def plot_3D_structure(self, ax, v_global , undeformed_color='k'):
         
-        wingElementMatrix = self.preprocess.elementMatrix
+        wingElementMatrix = self.preprocessor.elementMatrix
         
         # First, plot the undeformed structure
         for element in wingElementMatrix:
@@ -121,23 +123,37 @@ class Postprocess():
         # Apply scaling factor to displacements and update global_displacements
         global_displacements[remainingDofs, :] = displacements * scaling_factor
     
-        self.visualize_structure(global_displacements, timeSteps)
-
+        ani = self.visualize_structure(global_displacements, timeSteps)
+        
+        return ani
     
     def visualize_structure(self, global_displacements, timeSteps):
-        fig = plt.figure(figsize=(10, 7))
-        ax = fig.add_subplot(111, projection='3d')
-        elevation_angle = 0
-        azimuth_angle = 0 
-        ax.view_init(elev=elevation_angle, azim=azimuth_angle)
         
+        
+        if self.ax == None :
+            fig = plt.figure(figsize=(10, 7))
+            ax = fig.add_subplot(111, projection='3d')
+            
+            elevation_angle = 0
+            azimuth_angle = 0 
+            ax.view_init(elev=elevation_angle, azim=azimuth_angle)
+        else:
+            fig = self.ax.figure
+            ax = fig.add_subplot(111, projection='3d')
+            fig.clf()
+            
         ani = FuncAnimation(fig, self.update_plot, frames=range(timeSteps.shape[0]), 
                             fargs=(ax, global_displacements, 
                                    self.solver.preprocessor.nodeMatrix, self.solver.preprocessor.elementMatrix),
                             interval=100)
         
-        plt.show()
-    
+
+        if self.ax == None :
+            plt.show()
+        else:
+            self.ax.draw()
+            
+        return ani
     
     def update_plot(self, step, ax, global_displacements, nodeMatrix, elementMatrix):
         ax.clear()
@@ -156,7 +172,7 @@ class Postprocess():
             elif kind == 2:
                 color = 'r-'
                 
-            ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], [start_pos[2], end_pos[2]], color, marker='o', markersize=5, linestyle='-', linewidth=1.5)
+            ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], [start_pos[2], end_pos[2]], color, marker='o', markersize=5, linewidth=1.5)
             
        # ax.set_title(f'Time: {timeSteps[step]:.2f} s')
         ax.set_title('Real Time Displacement simulation for the Fixed Wing')
@@ -175,9 +191,9 @@ class Postprocess():
         start_index = (node_id - 1) * 6  # Starting index for the node's DOFs
         return global_displacements[start_index:start_index + 3, :]
 
-    def frequencyResponse(self):
+    def frequencyResponse(self, dofOfInterest = 726):
         
-        W, Xvs, Yvs, Zvs = self.solver.frequencyResponse(step = 2)
+        W, Xvs, Yvs, Zvs = self.solver.frequencyResponse(step = 2, dof_interest = dofOfInterest)
         
 
     

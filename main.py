@@ -18,8 +18,8 @@ solve.solve_with_eigenAnalysis()
 post = Postprocess(solver=solve)
 
 #post.plotEigenModes(numberOfModes = 8, scaling_factor = 2)
-#post.simulation_displacements(scaling_factor= 3)
+post.simulation_displacements(scaling_factor= 3)
 
-post.frequencyResponse()
+#post.frequencyResponse()
 
 
