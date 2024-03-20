@@ -4,8 +4,8 @@ from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt5.QtWidgets import QRadioButton, QGroupBox, QHBoxLayout
-from preprocessor import Preprocessor
-from solver import Solver
+from solvers.structural_dynamics.preprocessor import Preprocessor
+from solvers.structural_dynamics.solver import Solver
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -38,15 +38,25 @@ class MainWindow(QMainWindow):
         
         self.submit_button = QPushButton("Run Simulation")
         self.submit_button.clicked.connect(self.run_simulation)
+        
+                # Set default values
+        self.num_of_airfoils_input.setText("11")  # Default number of airfoils
+        self.force_input.setText("500")  # Default force value
+        self.timestep_input.setText("0.05")  # Default timestep value
+        
+        self.simulaton_time_input.setText("1")  # Default number of airfoils
+        self.num_of_eigenmodes_input.setText("6")  # Default force value
+        self.scaling_factor_input.setText("2")  # Default timestep value
+        self.node_of_interest.setText("100")  # Default timestep value
 
         # Add inputs to parameters layout
         self.parameters_layout.addWidget(QLabel("Number of Airfoils:"))
         self.parameters_layout.addWidget(self.num_of_airfoils_input)
-        self.parameters_layout.addWidget(QLabel("Force:"))
+        self.parameters_layout.addWidget(QLabel("Force [N]:"))
         self.parameters_layout.addWidget(self.force_input)
         self.parameters_layout.addWidget(QLabel("Timestep:"))
         self.parameters_layout.addWidget(self.timestep_input)
-        self.parameters_layout.addWidget(QLabel("Simulation Time:"))
+        self.parameters_layout.addWidget(QLabel("Simulation Time [sec]:"))
         self.parameters_layout.addWidget(self.simulaton_time_input)
         self.parameters_layout.addWidget(QLabel("Num of EigenModes to Visualize:"))
         self.parameters_layout.addWidget(self.num_of_eigenmodes_input)        
@@ -77,7 +87,7 @@ class MainWindow(QMainWindow):
         nodeOfInterest =  float(self.node_of_interest.text())
 
         pre, solve = self.solve_model(num_of_airfoils, force, scalingFactor,timestep, 
-                         simTime, scalingFactor)
+                         simTime)
 
         try:
         # ... existing code ...
@@ -131,7 +141,7 @@ class MainWindow(QMainWindow):
                             simTime):
         
         # Create preprocessors object
-        pre = Preprocessor(numberOfAirfoils= num_of_airfoils, forceValue= force, scalingFactor = scalingFactor)
+        pre = Preprocessor(numberOfAirfoils= num_of_airfoils, forceValue= force)
         
         # Solve Wing       
         solve = Solver(preprocessor= pre, timeStep= timestep, simulationTime= simTime)
