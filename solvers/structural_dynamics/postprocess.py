@@ -141,6 +141,7 @@ class Postprocess():
             fig = self.ax.figure
             ax = fig.add_subplot(111, projection='3d')
             fig.clf()
+            ax = fig.add_subplot(111, projection='3d')
             
         ani = FuncAnimation(fig, self.update_plot, frames=range(timeSteps.shape[0]), 
                             fargs=(ax, global_displacements, 

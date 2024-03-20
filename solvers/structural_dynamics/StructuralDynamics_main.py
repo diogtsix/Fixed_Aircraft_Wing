@@ -122,7 +122,7 @@ class MainWindow(QMainWindow):
         post = Postprocess(solver=solve, ax_handle = self.canvas)
         self.animation = post.simulation_displacements(scaling_factor= scalingFactor)
       
-        self.canvas.draw()
+        #self.canvas.draw()
     
     
     
@@ -132,8 +132,6 @@ class MainWindow(QMainWindow):
         post = Postprocess(solver=solve)
         post.frequencyResponse(dofOfInterest= dof_of_interest)
 
-    
-    
     
     def eigenmode_plots(self, scalingFactor, numOfEigenmodes, 
                          solve):
