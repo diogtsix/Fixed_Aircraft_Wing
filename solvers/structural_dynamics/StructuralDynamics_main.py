@@ -69,7 +69,8 @@ class MainWindow(QMainWindow):
         
         self.parameters_layout.addWidget(self.submit_button)
         
-        self.setup_choice_buttons()
+        self.setup_choice_buttons_solver()
+        self.setup_choice_buttons_results()
         
         
         
@@ -150,12 +151,21 @@ class MainWindow(QMainWindow):
         
         # Solve Wing       
         solve = Solver(preprocessor= pre, timeStep= timestep, simulationTime= simTime)
-        solve.solve_with_eigenAnalysis()
+        
+        try:
+            
+            if self.eigenAnalysis_button.isChecked():
+                solve.solve_with_eigenAnalysis()
+            elif self.newmark_button.isChecked():
+                solve.solve_with_Newmark()
+                
+        except Exception as e:
+            print("Error during simulation:", e)        
         
         return pre, solve
         
     
-    def setup_choice_buttons(self):
+    def setup_choice_buttons_results(self):
         
         
         # Group Box to hold the radio buttons
@@ -180,7 +190,31 @@ class MainWindow(QMainWindow):
 
         # Add the group box to the main parameters layout
         self.parameters_layout.addWidget(self.choice_group_box)
+
+    def setup_choice_buttons_solver(self):
+        
+        
+        # Group Box to hold the radio buttons
+        self.choice_group_box = QGroupBox("Solver to use")
+        self.choice_layout = QVBoxLayout()
     
+        # Radio buttons for choices
+        self.newmark_button = QRadioButton("Newmark")
+        self.eigenAnalysis_button = QRadioButton("Eigenmethod Analysis")
+    
+        # Set default selection
+        self.eigenAnalysis_button.setChecked(True)
+
+        # Add buttons to the layout
+        self.choice_layout.addWidget(self.newmark_button)
+        self.choice_layout.addWidget(self.eigenAnalysis_button)
+
+    
+        # Add the layout to the group box
+        self.choice_group_box.setLayout(self.choice_layout)
+
+        # Add the group box to the main parameters layout
+        self.parameters_layout.addWidget(self.choice_group_box)    
     
 def main():
     

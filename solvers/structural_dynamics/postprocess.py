@@ -109,9 +109,16 @@ class Postprocess():
         
         # Ensure eigenanalysis has been solved
         #self.solver.solve_with_eigenAnalysis()
-
-        displacements = self.solver.x_eigenAnalysis
-        timeSteps = self.solver.t_eigenAnalysis
+        if self.solver.x_eigenAnalysis == None: 
+            
+            displacements = self.solver.x_Newmark
+            timeSteps = self.solver.t_Newmark  
+                      
+        elif self.solver.x_newmark == None:
+            
+            displacements = self.solver.x_eigenAnalysis
+            timeSteps = self.solver.t_eigenAnalysis
+            
         n_steps = displacements.shape[1]
     
         # Add Boundary condition dofs

@@ -22,7 +22,6 @@ def Newmark(M, C, K, f, W, h, tf, a, b, n):
 
     # Newmark Integration
     for i in range(1, len(t)):
-        print(t[i])
         F = a * np.sin(W * t[i]) * f
         x[:, i] = np.linalg.solve(E1, E2 @ x[:, i-1] + E3 @ dx[:, i-1] + E4 @ ddx[:, i-1] + F)
         ddx[:, i] = (1/(a*h**2)) * (x[:, i] - x[:, i-1]) - (1/(a*h)) * dx[:, i-1] + \

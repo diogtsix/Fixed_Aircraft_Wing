@@ -1,25 +1,48 @@
-from dataobjects.barElement import BarElement
-from dataobjects.naca_airfoil_generation    import naca2D
-from solvers.structural_dynamics.preprocessor import Preprocessor
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from solvers.structural_dynamics.solver import Solver
-import numpy as np
-
-from solvers.structural_dynamics.postprocess import Postprocess
+import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
+from solvers.structural_dynamics.StructuralDynamics_main import MainWindow as StructuralDynamics
 
 
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Choose Fixed Wing Problem to Solve: ")
 
-pre = Preprocessor(numberOfAirfoils= 11)
+        # Create a central widget
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
 
-solve = Solver(preprocessor= pre, timeStep= 0.005, simulationTime= 0.8)
-solve.solve_with_eigenAnalysis()
+        # Create layout
+        layout = QVBoxLayout()
 
-post = Postprocess(solver=solve)
+        # Create buttons
+        btn_structural_dynamics = QPushButton("Fixed Wing Structural Dynamics Analysis")
+        btn_optimization = QPushButton("Fixed Wing Structural Optimization")
 
-#post.plotEigenModes(numberOfModes = 8, scaling_factor = 2)
-post.simulation_displacements(scaling_factor= 3)
+        # Connect buttons to functions
+        btn_structural_dynamics.clicked.connect(self.run_structural_dynamics)
+        btn_optimization.clicked.connect(self.run_optimization)
 
-#post.frequencyResponse()
+        # Add buttons to layout
+        layout.addWidget(btn_structural_dynamics)
+        layout.addWidget(btn_optimization)
 
+        # Set layout to central widget
+        central_widget.setLayout(layout)
 
+    def run_structural_dynamics(self):
+    
+        self.structural_dynamics_window = StructuralDynamics()
+        self.structural_dynamics_window.show()
+
+    def run_optimization(self):
+        pass
+
+def main():
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()
