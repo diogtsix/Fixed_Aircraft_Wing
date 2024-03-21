@@ -1,5 +1,3 @@
-
-
 class Material(): 
     
     def __init__(self, elasticModulus: float = 69*1e9, poissonRatio: float = 0.35,

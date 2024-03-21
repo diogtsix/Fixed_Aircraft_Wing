@@ -184,7 +184,9 @@ class Postprocess():
             ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], [start_pos[2], end_pos[2]], color, marker='o', markersize=5, linewidth=1.5)
             
        # ax.set_title(f'Time: {timeSteps[step]:.2f} s')
-        ax.set_title('Real Time Displacement simulation for the Fixed Wing')
+  
+
+        ax.set_title('Real Time Translational simulation for Harmonic Loading  F = F0 sin(Ωt) with Ω = 115.28 Hz')
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')

@@ -1,0 +1,20 @@
+{
+    "Aluminum": {
+        "elasticModulus": 69000000000,
+        "poissonRatio": 0.35,
+        "density": 2700,
+        "shearModulus": 25500000000
+    },
+    "Steel": {
+        "elasticModulus": 200000000000,
+        "poissonRatio": 0.3,
+        "density": 7850,
+        "shearModulus": 77000000000
+    },
+    "Titanium": {
+        "elasticModulus": 116000000000,
+        "poissonRatio": 0.34,
+        "density": 4500,
+        "shearModulus": 42000000000
+    }
+}
