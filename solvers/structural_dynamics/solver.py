@@ -170,11 +170,13 @@ class Solver():
         M = np.zeros((12, 12))
         xi = [-1 / np.sqrt(3), 1 / np.sqrt(3)]
         w = [1, 1]
-        
-        for i, xi_val in enumerate(xi):
+        i = 0
+        #for i, xi_val in enumerate(xi):
+        for xi_val in xi:
             N, _ = self.GetNB(xi_val, L)
             detJ = 0.5 * L
             M += w[i] * material.density * detJ * N.T @ A @ N
+            i += 1
 
         return K, M
 

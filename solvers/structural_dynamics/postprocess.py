@@ -109,15 +109,16 @@ class Postprocess():
         
         # Ensure eigenanalysis has been solved
         #self.solver.solve_with_eigenAnalysis()
-        if self.solver.x_eigenAnalysis == None: 
-            
-            displacements = self.solver.x_Newmark
-            timeSteps = self.solver.t_Newmark  
-                      
-        elif self.solver.x_newmark == None:
+        if self.solver.x_eigenAnalysis is not None: 
             
             displacements = self.solver.x_eigenAnalysis
             timeSteps = self.solver.t_eigenAnalysis
+
+                      
+        elif self.solver.x_Newmark is not None:
+            
+            displacements = self.solver.x_Newmark
+            timeSteps = self.solver.t_Newmark  
             
         n_steps = displacements.shape[1]
     

@@ -13,7 +13,7 @@ from solvers.structural_dynamics.postprocess import Postprocess
 pre = Preprocessor(numberOfAirfoils= 11)
 
 solve = Solver(preprocessor= pre, timeStep= 0.05, simulationTime= 0.8)
-solve.solve_with_Newmark()
+solve.solve_with_eigenAnalysis()
 
 post = Postprocess(solver=solve)
 
