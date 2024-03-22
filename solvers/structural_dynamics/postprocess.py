@@ -65,7 +65,7 @@ class Postprocess():
         
         # First, plot the undeformed structure
         for element in wingElementMatrix:
-            start_node, end_node, _ = element
+            start_node, end_node, _ , _, _= element
             x_values_undeformed = [start_node.coords[0], end_node.coords[0]]
             y_values_undeformed = [start_node.coords[1], end_node.coords[1]]
             z_values_undeformed = [start_node.coords[2], end_node.coords[2]]
@@ -75,7 +75,7 @@ class Postprocess():
     
     
         for element in wingElementMatrix:
-            start_node, end_node, kind = element
+            start_node, end_node, kind, _, _ = element
             
             if kind == 1:
                 color = 'b'
@@ -169,7 +169,7 @@ class Postprocess():
 
         # Iterate through each element and plot it using the updated positions
         for element in elementMatrix:
-            start_node, end_node, kind = element
+            start_node, end_node, kind, _, _ = element
             start_dofs = self.extract_translational_dofs_for_node(global_displacements, start_node.node_id)[:, step]
             end_dofs = self.extract_translational_dofs_for_node(global_displacements, end_node.node_id)[:, step]
             

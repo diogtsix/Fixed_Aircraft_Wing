@@ -146,7 +146,7 @@ class Preprocessor():
                 # Determine the element kind based on its index within the airfoil
                 # Assuming the first 12 elements are of one kind (e.g., beams) and the rest are another (e.g., bars)
                 kind = 2 if i < 12 else 1
-            
+
                 # Append new element with global node IDs and original kind
                 elementsWing.append([global_node_id_1, global_node_id_2, kind])
                 
@@ -166,11 +166,14 @@ class Preprocessor():
         # To build the wingElementMatrix with Node objects, map global indices back to Node objects
         wingElementMatrix = []
         
+        material = self.elementMaterial
+        surface = self.elementSurface
+                
         for global_node_id_1, global_node_id_2, kind in elementsWing:
             start_node = self.nodeMatrix[global_node_id_1]  # Directly use global index to access node
             end_node = self.nodeMatrix[global_node_id_2]
             # Append the Node objects and kind to the matrix
-            wingElementMatrix.append([start_node, end_node, kind])
+            wingElementMatrix.append([start_node, end_node, kind, material, surface])
 
         return wingElementMatrix
 

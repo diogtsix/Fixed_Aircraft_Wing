@@ -330,6 +330,9 @@ class Solver():
         self.x_Newmark = x # Displacement
         self.dx_Newmark = dx # Velocity
         self.ddx_Newmark = ddx # Acceleration
+        
+        self.strain_stress_calculation()
+    
     
     def solve_with_eigenAnalysis(self):
         
@@ -340,6 +343,9 @@ class Solver():
         
         self.t_eigenAnalysis = t
         self.x_eigenAnalysis = x
+        
+        self.strain_stress_calculation()
+     
         
     def frequencyResponse(self, max_freq = None,  dof_interest = 726, step = 0.5):
         """
@@ -382,3 +388,14 @@ class Solver():
             Zvs[i] = VS[2]
         
         return W, Xvs, Yvs, Zvs
+    
+    
+    
+    def strain_stress_calculation(self):
+        pass
+        #add deleted dofs intot 768 vector of dofs
+        #Based on the node.dof_id and the node_id caclualte for each column of dof displacement the ex,ey,sx,sy etc.
+        # So the matrix will look : strain = [kind == 1(or2), ex, ey, gxy (or ex, ey, ...)]
+        
+    
+    

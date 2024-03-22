@@ -65,7 +65,8 @@ class Weight_Optimization():
     
 
 def main():   
-    Weight_Optimization()
+    a = Weight_Optimization()
+    print(a)
 
 if __name__ == "__main__":
     main()
