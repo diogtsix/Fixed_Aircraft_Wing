@@ -41,6 +41,9 @@ class Solver():
         self.t_eigenAnalysis = None 
         self.x_eigenAnalysis = None
         
+        self.structural_properties = None
+        self.static_structural_properties = None
+        
         self.createGlobalMatrices()
         
         self.eigenAnalysis()
@@ -354,6 +357,7 @@ class Solver():
         self.x_eigenAnalysis = x
         
         self.strain_stress_calculation()
+        self.static_strain_stress_calc()
      
         
     def frequencyResponse(self, max_freq = None,  dof_interest = 726, step = 0.5):
@@ -401,15 +405,19 @@ class Solver():
     
     
     def strain_stress_calculation(self):
-        pass
-        #add deleted dofs intot 768 vector of dofs
-        #Based on the node.dof_id and the node_id caclualte for each column of dof displacement the ex,ey,sx,sy etc.
-        # So the matrix will look : strain = [kind == 1(or2), ex, ey, gxy (or ex, ey, ...)]
         
+        
+        if self.x_eigenAnalysis is not None: 
+            displacements = self.x_eigenAnalysis
+
+        elif self.x_Newmark is not None:
+            displacements = self.x_Newmark
+            
+            
         dofsNumber = self.preprocessor.totalDofs
-        displacements = self.x_eigenAnalysis
+        totalElements =  self.preprocessor.totalElements
         n_steps = displacements.shape[1]
-        structural_properties = np.empty((dofsNumber, n_steps), dtype=object)
+        structural_properties = np.empty((totalElements, n_steps), dtype=object)
         
         global_displacements = np.zeros([dofsNumber, n_steps])
         remainingDofs = np.setdiff1d(np.arange(dofsNumber), self.preprocessor.dofsToDelete - 1) 
@@ -419,7 +427,6 @@ class Solver():
         for ii in range(n_steps):
             
             for index, element in enumerate(self.preprocessor.elementMatrix, start=0):
-            
                 node_1, node_2, kind, material, surface, undeformed_length = element
                 elastic_modulus = material.elasticModulus
 
@@ -454,10 +461,7 @@ class Solver():
                     deforemed_length = np.sqrt(np.sum(diff**2))
                     
                     deltaL = deforemed_length - undeformed_length
-                    
-                    ex = deltaL/undeformed_length
-                    sx = elastic_modulus * ex
-                    
+                                    
                     _, B = self.GetNB(0, deforemed_length)
                     
                     node_disp = np.vstack((disp_first_node, disp_second_node)).reshape(-1, 1)
@@ -467,5 +471,70 @@ class Solver():
                     
                     structural_properties[index, ii] = Structural_Properties(ex = deformations[0], ey = deformations[1], ez = deformations[2],
                                                                              sx = stresses[0], sy = stresses[1], sz = stresses[2])
+                    
+                    self.structural_properties = structural_properties
 
-    
+    def static_strain_stress_calc(self):
+        
+        
+        displacements = self.staticDisplacement
+            
+            
+        dofsNumber = self.preprocessor.totalDofs
+        totalElements =  self.preprocessor.totalElements
+        n_steps = 1
+        structural_properties = np.empty((totalElements, n_steps), dtype=object)
+        
+        global_displacements = np.zeros([dofsNumber, 1])
+        remainingDofs = np.setdiff1d(np.arange(dofsNumber), self.preprocessor.dofsToDelete - 1) 
+        global_displacements[remainingDofs,0] = displacements
+
+        
+            
+        for index, element in enumerate(self.preprocessor.elementMatrix, start=0):
+            node_1, node_2, kind, material, surface, undeformed_length = element
+            elastic_modulus = material.elasticModulus
+
+
+                
+            if kind == 1:
+                
+                disp_first_node = global_displacements[node_1.dof_id[0:3] - 1]
+                disp_second_node = global_displacements[node_2.dof_id[0:3] - 1]
+                    
+                new_coords_1 = self.preprocessor.nodeMatrix[node_1.node_id - 1].coords + disp_first_node
+                new_coords_2 = self.preprocessor.nodeMatrix[node_2.node_id - 1].coords + disp_second_node
+                    
+                diff = np.abs(new_coords_2 - new_coords_1)
+                    
+                deforemed_length = np.sqrt(np.sum(diff**2))
+                deltaL = deforemed_length - undeformed_length
+                ex = deltaL/undeformed_length
+                sx = elastic_modulus * ex
+                    
+                structural_properties[index] = Structural_Properties(ex = ex, sx = sx)
+                
+            elif kind ==2:
+                    
+                disp_first_node = global_displacements[node_1.dof_id - 1]
+                disp_second_node = global_displacements[node_2.dof_id - 1]
+
+                new_coords_1 = self.preprocessor.nodeMatrix[node_1.node_id - 1].coords + disp_first_node[0:3]
+                new_coords_2 = self.preprocessor.nodeMatrix[node_2.node_id - 1].coords + disp_second_node[0:3]
+                diff = np.abs(new_coords_2 - new_coords_1)
+                    
+                deforemed_length = np.sqrt(np.sum(diff**2))
+                    
+                deltaL = deforemed_length - undeformed_length
+                                    
+                _, B = self.GetNB(0, deforemed_length)
+                    
+                node_disp = np.vstack((disp_first_node, disp_second_node)).reshape(-1, 1)
+                deformations = B @ node_disp
+                stresses = elastic_modulus * deformations
+
+                    
+                structural_properties[index] = Structural_Properties(ex = deformations[0], ey = deformations[1], ez = deformations[2],
+                                                                        sx = stresses[0], sy = stresses[1], sz = stresses[2])
+                    
+                self.static_structural_properties = structural_properties       
