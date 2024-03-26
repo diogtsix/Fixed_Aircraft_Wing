@@ -172,8 +172,12 @@ class Preprocessor():
         for global_node_id_1, global_node_id_2, kind in elementsWing:
             start_node = self.nodeMatrix[global_node_id_1]  # Directly use global index to access node
             end_node = self.nodeMatrix[global_node_id_2]
+            
+            #Calc elements length
+            diff = self.nodeMatrix[global_node_id_1].coords - self.nodeMatrix[global_node_id_2].coords
+            length = np.sqrt(np.sum(diff**2))
             # Append the Node objects and kind to the matrix
-            wingElementMatrix.append([start_node, end_node, kind, material, surface])
+            wingElementMatrix.append([start_node, end_node, kind, material, surface, length])
 
         return wingElementMatrix
 

@@ -15,7 +15,7 @@ pre = Preprocessor(numberOfAirfoils= 11)
 solve = Solver(preprocessor= pre, timeStep= 0.05, simulationTime= 0.8)
 solve.solve_with_eigenAnalysis()
 
-post = Postprocess(solver=solve)
+#post = Postprocess(solver=solve)
 
 #post.plotEigenModes(numberOfModes = 8, scaling_factor = 2)
 post.simulation_displacements(scaling_factor= 1)

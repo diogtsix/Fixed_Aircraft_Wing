@@ -5,6 +5,7 @@ from dataobjects.beamElement import BeamElement
 from scipy.linalg import eigh
 from Utilities.newmark import Newmark
 from Utilities.eigenAnalysis import eigenAnalysis
+from dataobjects.structural_properties import Structural_Properties
 
 class Solver():
     
@@ -67,7 +68,9 @@ class Solver():
             
             if element_type == 1: # Bar Elements
                 
-                K, M = self.KMBar3D(x1,y1,z1,x2,y2,z2)
+                _, _, _, element_material, element_surface, _ = element
+                K, M = self.KMBar3D(x1,y1,z1,x2,y2,z2,
+                                    element_material, element_surface)
                 
                 # local X1 , localY1, localZ1, localX2, localY2, localZ2  
                 LG = np.array([ node1.dof_id[0], node1.dof_id[1], node1.dof_id[2],
@@ -77,7 +80,10 @@ class Solver():
                 
             elif element_type == 2: #Beam Elements
                 
-                K, M = self.KMBeam3D(x1,y1,z1,x2,y2,z2)
+                _, _, _, element_material, element_surface, _ = element
+                
+                K, M = self.KMBeam3D(x1,y1,z1,x2,y2,z2,
+                                     element_material, element_surface)
                 
                 LG = np.array([node1.dof_id[0], node1.dof_id[1], node1.dof_id[2], node1.dof_id[3], node1.dof_id[4], node1.dof_id[5],
                                node2.dof_id[0], node2.dof_id[1], node2.dof_id[2], node2.dof_id[3], node2.dof_id[4], node2.dof_id[5]])
@@ -98,11 +104,11 @@ class Solver():
         self.staticDisplacement = K_inv @ self.F
                    
     
-    def KMBar3D(self, x1,y1,z1,x2,y2,z2):
+    def KMBar3D(self, x1,y1,z1,x2,y2,z2,
+                            element_material, element_surface):
         
-        material = self.preprocessor.elementMaterial
-        element_surface = self.barElement.area
-        
+        material = element_material
+                
         L = np.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
         cx = (x2 - x1) / L
         cy = (y2 - y1) / L
@@ -128,13 +134,16 @@ class Solver():
         return K, M
 
     
-    def KMBeam3D(self, x1, y1, z1, x2, y2, z2):
+    def KMBeam3D(self, x1, y1, z1, x2, y2, z2, 
+                 element_material, element_surface):
     
     
-        material = self.preprocessor.elementMaterial
-        element_surface = self.beamElement.area
-        J = self.beamElement.polarInertia
-        I = self.beamElement.surfaceInertia
+        material = element_material
+        radius = (element_surface / 3.14159) ** 0.5
+        
+        J = (3.14159 * radius**4) / 4
+        I = (3.14159 * radius**4) / 4
+        
         is_reduced = False
         
         L = np.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
@@ -397,5 +406,66 @@ class Solver():
         #Based on the node.dof_id and the node_id caclualte for each column of dof displacement the ex,ey,sx,sy etc.
         # So the matrix will look : strain = [kind == 1(or2), ex, ey, gxy (or ex, ey, ...)]
         
-    
+        dofsNumber = self.preprocessor.totalDofs
+        displacements = self.x_eigenAnalysis
+        n_steps = displacements.shape[1]
+        structural_properties = np.empty((dofsNumber, n_steps), dtype=object)
+        
+        global_displacements = np.zeros([dofsNumber, n_steps])
+        remainingDofs = np.setdiff1d(np.arange(dofsNumber), self.preprocessor.dofsToDelete - 1) 
+        global_displacements[remainingDofs, :] = displacements
+
+        
+        for ii in range(n_steps):
+            
+            for index, element in enumerate(self.preprocessor.elementMatrix, start=0):
+            
+                node_1, node_2, kind, material, surface, undeformed_length = element
+                elastic_modulus = material.elasticModulus
+
+
+                
+                if kind == 1:
+                
+                    disp_first_node = global_displacements[node_1.dof_id[0:3] - 1, ii]
+                    disp_second_node = global_displacements[node_2.dof_id[0:3] - 1, ii]
+                    
+                    new_coords_1 = self.preprocessor.nodeMatrix[node_1.node_id - 1].coords + disp_first_node
+                    new_coords_2 = self.preprocessor.nodeMatrix[node_2.node_id - 1].coords + disp_second_node
+                    
+                    diff = np.abs(new_coords_2 - new_coords_1)
+                    
+                    deforemed_length = np.sqrt(np.sum(diff**2))
+                    deltaL = deforemed_length - undeformed_length
+                    ex = deltaL/undeformed_length
+                    sx = elastic_modulus * ex
+                    
+                    structural_properties[index, ii] = Structural_Properties(ex = ex, sx = sx)
+                
+                elif kind ==2:
+                    
+                    disp_first_node = global_displacements[node_1.dof_id - 1, ii]
+                    disp_second_node = global_displacements[node_2.dof_id - 1, ii]
+
+                    new_coords_1 = self.preprocessor.nodeMatrix[node_1.node_id - 1].coords + disp_first_node[0:3]
+                    new_coords_2 = self.preprocessor.nodeMatrix[node_2.node_id - 1].coords + disp_second_node[0:3]
+                    diff = np.abs(new_coords_2 - new_coords_1)
+                    
+                    deforemed_length = np.sqrt(np.sum(diff**2))
+                    
+                    deltaL = deforemed_length - undeformed_length
+                    
+                    ex = deltaL/undeformed_length
+                    sx = elastic_modulus * ex
+                    
+                    _, B = self.GetNB(0, deforemed_length)
+                    
+                    node_disp = np.vstack((disp_first_node, disp_second_node)).reshape(-1, 1)
+                    deformations = B @ node_disp
+                    stresses = elastic_modulus * deformations
+
+                    
+                    structural_properties[index, ii] = Structural_Properties(ex = deformations[0], ey = deformations[1], ez = deformations[2],
+                                                                             sx = stresses[0], sy = stresses[1], sz = stresses[2])
+
     

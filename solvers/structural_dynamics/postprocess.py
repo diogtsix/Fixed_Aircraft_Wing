@@ -126,7 +126,7 @@ class Postprocess():
         dofsNumber = self.preprocessor.totalDofs
         global_displacements = np.zeros([dofsNumber, n_steps])
     
-        remainingDofs = np.setdiff1d(np.arange(dofsNumber), self.preprocessor.dofsToDelete - 1)  # Adjust if dofsToDelete is 1-based
+        remainingDofs = np.setdiff1d(np.arange(dofsNumber), self.preprocessor.dofsToDelete - 1)  
     
         # Apply scaling factor to displacements and update global_displacements
         global_displacements[remainingDofs, :] = displacements * scaling_factor
@@ -169,7 +169,7 @@ class Postprocess():
 
         # Iterate through each element and plot it using the updated positions
         for element in elementMatrix:
-            start_node, end_node, kind, _, _ = element
+            start_node, end_node, kind, _, _, _ = element
             start_dofs = self.extract_translational_dofs_for_node(global_displacements, start_node.node_id)[:, step]
             end_dofs = self.extract_translational_dofs_for_node(global_displacements, end_node.node_id)[:, step]
             
