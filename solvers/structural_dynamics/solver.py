@@ -403,7 +403,6 @@ class Solver():
         return W, Xvs, Yvs, Zvs
     
     
-    
     def strain_stress_calculation(self):
         
         
@@ -473,6 +472,7 @@ class Solver():
                                                                              sx = stresses[0], sy = stresses[1], sz = stresses[2])
                     
                     self.structural_properties = structural_properties
+
 
     def static_strain_stress_calc(self):
         

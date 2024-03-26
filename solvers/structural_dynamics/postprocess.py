@@ -57,8 +57,7 @@ class Postprocess():
                 
             plt.tight_layout()
             plt.show()
-    
-    
+      
     def plot_3D_structure(self, ax, v_global , undeformed_color='k'):
         
         wingElementMatrix = self.preprocessor.elementMatrix
@@ -89,8 +88,7 @@ class Postprocess():
             z_values = [start_node.coords[2] + v_global[start_node.dof_id[2] - 1],
                         end_node.coords[2] + v_global[end_node.dof_id[2] - 1]]
             ax.plot(x_values, y_values, z_values, color=color, marker='o', markersize=5, linestyle='-', linewidth=1.5)
-         
-            
+                 
     def create_v_global(self, mode, scaling_factor=1):
 
         dofsNumber = self.preprocessor.totalDofs
@@ -103,8 +101,7 @@ class Postprocess():
         v_global[remainingDofs] = mode * scaling_factor
         
         return v_global
-    
-    
+       
     def simulation_displacements(self, scaling_factor = 1):
         
         # Ensure eigenanalysis has been solved
@@ -192,8 +189,7 @@ class Postprocess():
         ax.set_zlabel('Z')
         ax.set_xlim([-0.75, 1.3])
         ax.set_ylim([-0.5, 0.5])
-        ax.set_zlim([0, 4])
-        
+        ax.set_zlim([0, 4])       
     
     def extract_translational_dofs_for_node(self, global_displacements, node_id):
         # Extracts x, y, z displacements for a specific node across all timesteps
