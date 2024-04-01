@@ -89,7 +89,8 @@ class Weight_Optimization():
         
         initial_point = initial_opt_vars.flatten()  # Initial the starting point for iterations
         
-        constraints = [{'type': 'ineq', 'fun': self.stress_constraint}] # The opt algorithm will ensure that ineq will stay >= 0
+        constraints = [{'type': 'ineq', 'fun': self.stress_constraint}, 
+                       {'type': 'ineq', 'fun': self.material_constraint}] # The opt algorithm will ensure that ineq will stay >= 0
         
        
             # ,             {'type': 'ineq', 'fun': self.material_constraint}
@@ -165,6 +166,9 @@ class Weight_Optimization():
         material_ids = np.array([obj.id for obj in material_objects], dtype=int).reshape(-1, 1)
         
         surfaces = surfaces.reshape(-1, 1)
+        
+        for ii in range (len(surfaces)):
+            surfaces[ii] = surfaces[ii] * 10
         combined_vector = np.vstack((surfaces, material_ids))
                 
         return combined_vector, surfaces, material_ids
