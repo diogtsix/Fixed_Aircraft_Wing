@@ -15,7 +15,7 @@ from solvers.optimization.material_database import generate_material_np_matrix
  
 class Weight_Optimization():
     
-    def __init__(self, solverType = 'L-BFGS-B', preprocessorObj = None, solverObj = None, 
+    def __init__(self, solverType = 'SLSQP', preprocessorObj = None, solverObj = None, 
                 postprocessorObj = None):
         
         self.material_data_base = generate_material_np_matrix()
@@ -40,7 +40,6 @@ class Weight_Optimization():
         self.solver = self.initial_solver
         self.initial_postprocessor = self.initial_postprocessor
         
-        self.initial_solver.solve_with_eigenAnalysis()
         
         # For now We set as allowbable Stress the static values for all elements = Aluminium
         self.allowableStress = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
@@ -57,7 +56,7 @@ class Weight_Optimization():
         
         #Calc total_weight which should be the output of the objective function
         total_weight = self.calculate_total_weight(updated_elementMatrix)
-        
+        print(total_weight)
         return total_weight
 
     # Constraint Functions
@@ -72,20 +71,18 @@ class Weight_Optimization():
         self.preprocessor.elementMatrix = updated_elementMatrix
         
         solver = Solver(preprocessor = self.preprocessor)
-        solver.solve_with_eigenAnalysis()
         
-        structuralProperties = solver.structural_properties
+        structuralProperties = solver.static_structural_properties
         
         stress = self.extract_structural_attribute_array(structuralProperties, 
                                                                        'sx')
         
-        return self.allowable_stress - stress
+        return np.abs(self.allowableStress) - np.abs(stress)
 
     # Main Optimization Function
     def run_optimization(self):
         
         #Solve win for initial point (static solution)
-        self.initial_solver.solve_with_eigenAnalysis()
         element_matrix_initial = self.initial_solver.preprocessor.elementMatrix
         
         initial_opt_vars, initi_surfaces, init_ids = self.extract_optimization_vars_from_elementMatrix(element_matrix_initial)
@@ -94,17 +91,40 @@ class Weight_Optimization():
         
         constraints = [{'type': 'ineq', 'fun': self.stress_constraint}] # The opt algorithm will ensure that ineq will stay >= 0
         
+       
+            # ,             {'type': 'ineq', 'fun': self.material_constraint}
+            
+        options = [{'maxiter': 100, 'disp': True}]
+        
         result = minimize(fun = self.objective_function, x0 = initial_point,
-                          method = self.solverType,  constraints = constraints , 
-                           callback=self.callback_func)
+                          method = 'trust-constr',  constraints = constraints , 
+                            options={'verbose': 3})
         
         print("Optimization Result:", result)
         
+    def material_constraint(x):
+        # Assuming x is an array where the first half represents surfaces
+        # and the second half represents material IDs
+        material_ids = [1, 2, 3] 
+        num_elements = len(x) // 2  # Assuming x is structured as [surfaces, material_ids]
+        material_vars = x[num_elements:]  # Extract material variables from x
         
+        # Initialize penalty
+        penalty = 0
+        
+        # Calculate the penalty for each material variable being away from discrete material IDs
+        for m_var in material_vars:
+            # Calculate the minimum distance to the nearest material ID
+            min_distance = min(abs(m_var - mid) for mid in material_ids)
+            
+            penalty += min_distance**30
+            print(material_vars)
+            print(penalty)
+        return -penalty
         
     def calculate_total_weight(self, elementMatrix):
         
-        total_Weight = 0
+        total_weight = 0
         
         for element in elementMatrix:
             
@@ -174,6 +194,9 @@ class Weight_Optimization():
         """
         FUnction to extract the materil object from my database
         """
+        
+        material_id = round(material_id, 4)
+        
         for row in self.material_data_base:
             if row[1] == material_id:
                 return row[2]  # Return the Material object
@@ -188,7 +211,13 @@ class Weight_Optimization():
         # Iterate over each row in the structural_properties array
         for prop in Structural_properties:
             
-            val  = float(getattr(prop[0], attribute_name, None))
+            
+            array_val  =getattr(prop[0], attribute_name, None)
+            if np.isscalar(array_val):
+                val = array_val
+            else:
+                val  = array_val[0]
+            
             attribute_values.append(val)
             
         attribute_values_array = np.array(attribute_values)

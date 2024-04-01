@@ -105,6 +105,8 @@ class Solver():
         # Calculate static displacement 
         K_inv = np.linalg.inv(self.K)
         self.staticDisplacement = K_inv @ self.F
+        
+        self.static_strain_stress_calc()
                    
     
     def KMBar3D(self, x1,y1,z1,x2,y2,z2,
@@ -357,7 +359,7 @@ class Solver():
         self.x_eigenAnalysis = x
         
         self.strain_stress_calculation()
-        self.static_strain_stress_calc()
+        
      
         
     def frequencyResponse(self, max_freq = None,  dof_interest = 726, step = 0.5):
