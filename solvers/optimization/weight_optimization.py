@@ -33,42 +33,96 @@ class Weight_Optimization():
         else:
             self.initial_postprocessor = postprocessorObj
        
-        self.allowableStress = None
+        
         self.solverType = solverType
+        
+        self.preprocessor = self.initial_preprocessor
+        self.solver = self.initial_solver
+        self.initial_postprocessor = self.initial_postprocessor
+        
+        self.initial_solver.solve_with_eigenAnalysis()
+        
+        # For now We set as allowbable Stress the static values for all elements = Aluminium
+        self.allowableStress = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
+                                                                       'sx')
        
 
     # Objective Function
-    def objective_function(self,design_vars):
-        # Calculate total weight based on design_vars
-        # design_vars could include indices for material choices and cross-sectional areas
-        design_vars = 1
-        total_weight = self.calculate_total_weight(design_vars)
+    def objective_function(self,opt_vars):
+        
+        elementMatrix = self.preprocessor.elementMatrix
+        
+        #Update the elementMatrix based on the opt_vars
+        updated_elementMatrix = self.replace_optimized_vars_to_elementMatrix(opt_vars, elementMatrix)
+        
+        #Calc total_weight which should be the output of the objective function
+        total_weight = self.calculate_total_weight(updated_elementMatrix)
+        
         return total_weight
 
     # Constraint Functions
-    def stress_constraint(self,design_vars):
-        # Placeholder for stress constraint calculation
-        max_stress = self.calculate_max_stress(design_vars)
-        return self.allowable_stress - max_stress
+    def stress_constraint(self, opt_vars):
+        
+        elementMatrix = self.preprocessor.elementMatrix
+        
+        #Update the elementMatrix based on the opt_vars
+        updated_elementMatrix = self.replace_optimized_vars_to_elementMatrix(opt_vars, elementMatrix)
+        
+        #Update the preprocessor based on the opt_vars
+        self.preprocessor.elementMatrix = updated_elementMatrix
+        
+        solver = Solver(preprocessor = self.preprocessor)
+        solver.solve_with_eigenAnalysis()
+        
+        structuralProperties = solver.structural_properties
+        
+        stress = self.extract_structural_attribute_array(structuralProperties, 
+                                                                       'sx')
+        
+        return self.allowable_stress - stress
 
     # Main Optimization Function
     def run_optimization(self):
         
         #Solve win for initial point (static solution)
         self.initial_solver.solve_with_eigenAnalysis()
+        element_matrix_initial = self.initial_solver.preprocessor.elementMatrix
         
-        optimization_variables, _, _ = self.extract_optimization_var()
+        initial_opt_vars, initi_surfaces, init_ids = self.extract_optimization_vars_from_elementMatrix(element_matrix_initial)
         
-        initial_point = [0, 0.005]  # Example: [Material index, cross-sectional area]
+        initial_point = initial_opt_vars.flatten()  # Initial the starting point for iterations
         
-        constraints = [{'type': 'ineq', 'fun': self.stress_constraint}]  # Define other constraints similarly
+        constraints = [{'type': 'ineq', 'fun': self.stress_constraint}] # The opt algorithm will ensure that ineq will stay >= 0
         
         result = minimize(fun = self.objective_function, x0 = initial_point,
-                          method = self.solverType,  constraints = constraints)
+                          method = self.solverType,  constraints = constraints , 
+                           callback=self.callback_func)
+        
         print("Optimization Result:", result)
         
-    def calculate_total_weight(self, design_vars):
-        design_vars = 1
+        
+        
+    def calculate_total_weight(self, elementMatrix):
+        
+        total_Weight = 0
+        
+        for element in elementMatrix:
+            
+            start_node, end_node, material, surface = element[0], element[1], element[3], element[4]
+
+            # Calculate element length
+            length = np.linalg.norm(np.array(end_node.coords) - np.array(start_node.coords))
+            
+            # Calculate volume
+            volume = length * surface
+            
+            # Calculate weight
+            weight = volume * material.density
+            
+            # Add to total weight
+            total_weight += weight
+        
+        return total_weight
     
     
     def get_material(self, material_name):
@@ -78,20 +132,75 @@ class Weight_Optimization():
                 return row[1]
         raise ValueError(f"Material '{material_name}' not found in database.")
     
-    def extract_optimization_var(self):
-        elementMatrix = self.initial_solver.preprocessor.elementMatrix
+    
+    def extract_optimization_vars_from_elementMatrix(self, elementMatrix_input):
+        elementMatrix = elementMatrix_input
         
         elementMatrix_np = np.array(elementMatrix, dtype=object)
         
-        surfaces = elementMatrix_np[:, 4].astype(float) 
+        surfaces = elementMatrix_np[:, 4].astype(float).reshape(-1, 1) 
+        
         material_objects = elementMatrix_np[:, 3] 
         
-        material_objects = np.array(material_objects, dtype=object).reshape(-1, 1)
+        material_ids = np.array([obj.id for obj in material_objects], dtype=int).reshape(-1, 1)
         
         surfaces = surfaces.reshape(-1, 1)
-        combined_vector = np.vstack((surfaces, material_objects))
+        combined_vector = np.vstack((surfaces, material_ids))
                 
-        return combined_vector, surfaces, material_objects
+        return combined_vector, surfaces, material_ids
+        
+                
+    def replace_optimized_vars_to_elementMatrix(self, opt_vars, elementMatrix):
+        
+        num_elements = len(elementMatrix)
+        surface_areas = opt_vars[:num_elements]  # First half is surface areas
+        material_ids = opt_vars[num_elements:]  # Second half is material IDs
+        
+        updated_elementMatrix = elementMatrix.copy() # ElementMatrix should be a list or a type that supports .copy
+
+        for i, element in enumerate(updated_elementMatrix):
+            # Update surface area
+            element[4] = surface_areas[i]
+            
+            # Lookup and update material object
+            material_id = material_ids[i]
+            material_object = self.get_material_by_id(material_id)
+            element[3] = material_object
+
+        return updated_elementMatrix
+                       
+            
+    def get_material_by_id(self, material_id):
+        """
+        FUnction to extract the materil object from my database
+        """
+        for row in self.material_data_base:
+            if row[1] == material_id:
+                return row[2]  # Return the Material object
+        raise ValueError(f"Material ID {material_id} not found in database.")
+    
+    
+    def extract_structural_attribute_array(self, Structural_properties, attribute_name):
+        
+        # Initialize an empty list to store the attribute values
+        attribute_values = []
+
+        # Iterate over each row in the structural_properties array
+        for prop in Structural_properties:
+            
+            val  = float(getattr(prop[0], attribute_name, None))
+            attribute_values.append(val)
+            
+        attribute_values_array = np.array(attribute_values)
+        
+        # Convert the list of attribute values into a NumPy array
+        return attribute_values_array
+        
+    def callback_func(x):
+        # Callback function to display the current solution
+        print(f"Current solution: {x}")
+        
+        
         
 def main():   
     a = Weight_Optimization()
