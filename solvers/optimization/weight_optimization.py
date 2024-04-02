@@ -10,8 +10,7 @@ from solvers.structural_dynamics.solver import Solver
 from solvers.structural_dynamics.postprocess import Postprocess
 
 from solvers.optimization.material_database import generate_material_np_matrix
- 
- 
+
  
 class Weight_Optimization():
     
@@ -39,12 +38,12 @@ class Weight_Optimization():
         self.preprocessor = self.initial_preprocessor
         self.solver = self.initial_solver
         self.initial_postprocessor = self.initial_postprocessor
-        
+
         
         # For now We set as allowbable Stress the static values for all elements = Aluminium
         self.allowableStress = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
                                                                        'sx')
-       
+
 
     # Objective Function
     def objective_function(self,opt_vars):
@@ -61,7 +60,7 @@ class Weight_Optimization():
 
     # Constraint Functions
     def stress_constraint(self, opt_vars):
-        
+  
         elementMatrix = self.preprocessor.elementMatrix
         
         #Update the elementMatrix based on the opt_vars
@@ -76,7 +75,7 @@ class Weight_Optimization():
         
         stress = self.extract_structural_attribute_array(structuralProperties, 
                                                                        'sx')
-        
+                                                                    
         return np.abs(self.allowableStress) - np.abs(stress)
 
     # Main Optimization Function
