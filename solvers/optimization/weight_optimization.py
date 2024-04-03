@@ -11,6 +11,7 @@ from solvers.structural_dynamics.postprocess import Postprocess
 
 from solvers.optimization.material_database import generate_material_np_matrix
 
+from gekko import GEKKO
  
 class Weight_Optimization():
     
@@ -46,8 +47,10 @@ class Weight_Optimization():
 
 
     # Objective Function
+    # def objective_function(self,x_continuous, x_integer):
     def objective_function(self,opt_vars):
-        
+
+        # opt_vars = np.array(x_continuous + x_integer)
         elementMatrix = self.preprocessor.elementMatrix
         
         #Update the elementMatrix based on the opt_vars
@@ -59,8 +62,12 @@ class Weight_Optimization():
         return total_weight
 
     # Constraint Functions
+    # def stress_constraint(self, x_continuous, x_integer):
     def stress_constraint(self, opt_vars):
-  
+       
+        
+        # opt_vars = np.array(x_continuous + x_integer)
+        
         elementMatrix = self.preprocessor.elementMatrix
         
         #Update the elementMatrix based on the opt_vars
@@ -88,19 +95,42 @@ class Weight_Optimization():
         
         initial_point = initial_opt_vars.flatten()  # Initial the starting point for iterations
         
-        constraints = [{'type': 'ineq', 'fun': self.stress_constraint}, 
-                       {'type': 'ineq', 'fun': self.material_constraint}] # The opt algorithm will ensure that ineq will stay >= 0
+        constraints = [{'type': 'ineq', 'fun': self.stress_constraint}] # The opt algorithm will ensure that ineq will stay >= 0
         
        
             # ,             {'type': 'ineq', 'fun': self.material_constraint}
             
-        options = [{'maxiter': 100, 'disp': True}]
+        options = [{'maxiter': 5, 'disp': True}]
         
         result = minimize(fun = self.objective_function, x0 = initial_point,
                           method = 'trust-constr',  constraints = constraints , 
                             options={'verbose': 3})
         
+        
+       
         print("Optimization Result:", result)
+
+        # optimizer  = GEKKO(remote = False) # Create a GEKKO object
+        # num_vars = len(initial_opt_vars) // 2 
+
+        # # Continous vars 
+        # x_continuous = [optimizer.Var(value=0.005, lb=0) for _ in range(num_vars)]
+        
+        # # Integer Vars
+        # x_integer = [optimizer.sos1([0, 1, 2]) for _ in range(num_vars)]  # SOS1 for selecting among discrete options
+        
+        # optimizer.Minimize (self.objective_function(x_continuous, x_integer))
+        
+        # stress_expr = self.stress_constraint(x_continuous, x_integer)
+        
+        # optimizer.Equation([expr >= 0 for expr in stress_expr])
+        # optimizer.open_folder()
+        
+        
+        # optimizer.options.SOLVER = 1
+        # optimizer.solve(disp = True)
+ 
+       
         
     def material_constraint(x):
         # Assuming x is an array where the first half represents surfaces
@@ -121,6 +151,7 @@ class Weight_Optimization():
             print(material_vars)
             print(penalty)
         return -penalty
+       
         
     def calculate_total_weight(self, elementMatrix):
         
@@ -183,12 +214,17 @@ class Weight_Optimization():
 
         for i, element in enumerate(updated_elementMatrix):
             # Update surface area
-            element[4] = surface_areas[i]
-            
+            # val_sruface = float(str(surface_areas[i].VALUE))
+            val_surface = surface_areas[i]
+            element[4] = val_surface
+
             # Lookup and update material object
-            material_id = material_ids[i]
+            # val_id =  int(str(material_ids[i].VALUE))
+            val_id = material_ids[i]
+            material_id = val_id
             material_object = self.get_material_by_id(material_id)
             element[3] = material_object
+
 
         return updated_elementMatrix
                        
@@ -198,7 +234,7 @@ class Weight_Optimization():
         FUnction to extract the materil object from my database
         """
         
-        material_id = round(material_id, 4)
+       # material_id = round(material_id, 4)
         
         for row in self.material_data_base:
             if row[1] == material_id:
@@ -215,7 +251,7 @@ class Weight_Optimization():
         for prop in Structural_properties:
             
             
-            array_val  =getattr(prop[0], attribute_name, None)
+            array_val  = getattr(prop[0], attribute_name, None)
             if np.isscalar(array_val):
                 val = array_val
             else:
@@ -227,6 +263,7 @@ class Weight_Optimization():
         
         # Convert the list of attribute values into a NumPy array
         return attribute_values_array
+    
         
     def callback_func(x):
         # Callback function to display the current solution
