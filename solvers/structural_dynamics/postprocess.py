@@ -57,15 +57,14 @@ class Postprocess():
                 
             plt.tight_layout()
             plt.show()
-    
-    
+      
     def plot_3D_structure(self, ax, v_global , undeformed_color='k'):
         
         wingElementMatrix = self.preprocessor.elementMatrix
         
         # First, plot the undeformed structure
         for element in wingElementMatrix:
-            start_node, end_node, _ = element
+            start_node, end_node, _ , _, _, _= element
             x_values_undeformed = [start_node.coords[0], end_node.coords[0]]
             y_values_undeformed = [start_node.coords[1], end_node.coords[1]]
             z_values_undeformed = [start_node.coords[2], end_node.coords[2]]
@@ -75,7 +74,7 @@ class Postprocess():
     
     
         for element in wingElementMatrix:
-            start_node, end_node, kind = element
+            start_node, end_node, kind, _, _, _= element
             
             if kind == 1:
                 color = 'b'
@@ -89,8 +88,7 @@ class Postprocess():
             z_values = [start_node.coords[2] + v_global[start_node.dof_id[2] - 1],
                         end_node.coords[2] + v_global[end_node.dof_id[2] - 1]]
             ax.plot(x_values, y_values, z_values, color=color, marker='o', markersize=5, linestyle='-', linewidth=1.5)
-         
-            
+                 
     def create_v_global(self, mode, scaling_factor=1):
 
         dofsNumber = self.preprocessor.totalDofs
@@ -103,21 +101,21 @@ class Postprocess():
         v_global[remainingDofs] = mode * scaling_factor
         
         return v_global
-    
-    
+       
     def simulation_displacements(self, scaling_factor = 1):
         
         # Ensure eigenanalysis has been solved
         #self.solver.solve_with_eigenAnalysis()
-        if self.solver.x_eigenAnalysis == None: 
-            
-            displacements = self.solver.x_Newmark
-            timeSteps = self.solver.t_Newmark  
-                      
-        elif self.solver.x_newmark == None:
+        if self.solver.x_eigenAnalysis is not None: 
             
             displacements = self.solver.x_eigenAnalysis
             timeSteps = self.solver.t_eigenAnalysis
+
+                      
+        elif self.solver.x_Newmark is not None:
+            
+            displacements = self.solver.x_Newmark
+            timeSteps = self.solver.t_Newmark  
             
         n_steps = displacements.shape[1]
     
@@ -125,7 +123,7 @@ class Postprocess():
         dofsNumber = self.preprocessor.totalDofs
         global_displacements = np.zeros([dofsNumber, n_steps])
     
-        remainingDofs = np.setdiff1d(np.arange(dofsNumber), self.preprocessor.dofsToDelete - 1)  # Adjust if dofsToDelete is 1-based
+        remainingDofs = np.setdiff1d(np.arange(dofsNumber), self.preprocessor.dofsToDelete - 1)  
     
         # Apply scaling factor to displacements and update global_displacements
         global_displacements[remainingDofs, :] = displacements * scaling_factor
@@ -168,7 +166,7 @@ class Postprocess():
 
         # Iterate through each element and plot it using the updated positions
         for element in elementMatrix:
-            start_node, end_node, kind = element
+            start_node, end_node, kind, _, _, _ = element
             start_dofs = self.extract_translational_dofs_for_node(global_displacements, start_node.node_id)[:, step]
             end_dofs = self.extract_translational_dofs_for_node(global_displacements, end_node.node_id)[:, step]
             
@@ -183,14 +181,15 @@ class Postprocess():
             ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], [start_pos[2], end_pos[2]], color, marker='o', markersize=5, linewidth=1.5)
             
        # ax.set_title(f'Time: {timeSteps[step]:.2f} s')
-        ax.set_title('Real Time Displacement simulation for the Fixed Wing')
+  
+
+        ax.set_title('Real Time Translational simulation for Harmonic Loading  F = F0 sin(Ωt) with Ω = 115.28 Hz')
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
         ax.set_xlim([-0.75, 1.3])
         ax.set_ylim([-0.5, 0.5])
-        ax.set_zlim([0, 4])
-        
+        ax.set_zlim([0, 4])       
     
     def extract_translational_dofs_for_node(self, global_displacements, node_id):
         # Extracts x, y, z displacements for a specific node across all timesteps

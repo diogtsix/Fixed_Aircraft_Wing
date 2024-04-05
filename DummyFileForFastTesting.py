@@ -13,11 +13,11 @@ from solvers.structural_dynamics.postprocess import Postprocess
 pre = Preprocessor(numberOfAirfoils= 11)
 
 solve = Solver(preprocessor= pre, timeStep= 0.05, simulationTime= 0.8)
-solve.solve_with_Newmark()
+solve.solve_with_eigenAnalysis()
 
 post = Postprocess(solver=solve)
 
-#post.plotEigenModes(numberOfModes = 8, scaling_factor = 2)
-post.simulation_displacements(scaling_factor= 3)
+post.plotEigenModes(numberOfModes = 8, scaling_factor = 2)
+#post.simulation_displacements(scaling_factor= 1)
 
 #post.frequencyResponse()

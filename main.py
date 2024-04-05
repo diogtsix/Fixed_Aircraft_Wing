@@ -4,6 +4,7 @@ from solvers.structural_dynamics.StructuralDynamics_main import MainWindow as St
 
 
 class MainWindow(QMainWindow):
+    
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Choose Fixed Wing Problem to Solve: ")
