@@ -40,11 +40,14 @@ class Weight_Optimization():
         self.solver = self.initial_solver
         self.initial_postprocessor = self.initial_postprocessor
         self.surface_factor = None 
+        self.results = None 
 
         
         # For now We set as allowbable Stress the static values for all elements = Aluminium
-        self.allowableStress = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
+        SS = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
                                                                        'sx')
+        
+        self.allowableStress = SS*(3/4)
 
 
     # Objective Function
@@ -85,8 +88,8 @@ class Weight_Optimization():
         
         stress = self.extract_structural_attribute_array(structuralProperties, 
                                                                        'sx')
-        a = 2 
-        print(a)                                                            
+      
+        print(np.min((np.abs(self.allowableStress) - np.abs(stress))  ) )                                                         
         return np.abs(self.allowableStress) - np.abs(stress)
 
     # Main Optimization Function
@@ -94,22 +97,40 @@ class Weight_Optimization():
         
         #Solve win for initial point (static solution)
         element_matrix_initial = self.initial_solver.preprocessor.elementMatrix
-        
+        num_elements = len(element_matrix_initial) 
         initial_opt_vars, initi_surfaces, init_ids = self.extract_optimization_vars_from_elementMatrix(element_matrix_initial)
         
         initial_point = initial_opt_vars.flatten()  # Initial the starting point for iterations
         
-        # constraints = [{'type': 'eq', 'fun': self.discrete_constraints}, 
-        #                {'type': 'ineq', 'fun': self.stress_constraint}
-        #                ] # The opt algorithm will ensure that ineq will stay >= 0
-        constraints = [{'type': 'eq', 'fun': self.discrete_constraints}
-                       ] # The opt algorithm will ensure that ineq will stay >= 0
-            
-        options = [{'maxiter': 5, 'disp': True}]
+        bounds_first_half = [(0.5, 4) for _ in range(num_elements)] 
+        bounds_second_half = [(0, 10) for _ in range(num_elements)] 
+        bounds = bounds_first_half + bounds_second_half 
         
-        result = minimize(fun = self.objective_function, x0 = initial_point,
-                          method = 'trust-constr',  constraints = constraints, 
-                          options={'verbose': 3, 'maxiter': 100})
+        constraints = [{'type': 'ineq', 'fun': self.stress_constraint}
+                       ] # The opt algorithm will ensure that ineq will stay >= 0
+        
+        
+        # constraints = [{'type': 'eq', 'fun': self.discrete_constraints}
+        #                ] 
+        
+        if self.solverType == 'trust-constr':
+            result = minimize(fun = self.objective_function, x0 = initial_point,
+                            method = 'trust-constr', 
+                            bounds = bounds, 
+                            constraints = constraints, 
+                            options={'verbose': 3, 'maxiter': 100, 
+                            'initial_tr_radius': 5})
+            
+        elif self.solverType == 'SLSQP': 
+            
+            # For SLSQP
+            result = minimize(fun=self.objective_function, 
+                    x0=initial_point, 
+                    method='SLSQP', 
+                    bounds=bounds, 
+                    constraints=constraints, 
+                    options={'ftol': 1e-6, 'eps': 1.5e-4, 'maxiter': 10})
+        
         
         
         # Remove normalization from the surfaces 
@@ -120,7 +141,8 @@ class Weight_Optimization():
         print("Objective Function Value:", result.fun)
         print("Optimization Variables:", result.x)
         print("Optimization Result:", result)
-
+         
+        self.results = result
  
        
         
@@ -179,6 +201,8 @@ class Weight_Optimization():
     def extract_optimization_vars_from_elementMatrix(self, elementMatrix_input):
         elementMatrix = elementMatrix_input
         
+        num_elements = len(elementMatrix)
+        
         elementMatrix_np = np.array(elementMatrix, dtype=object)
         
         surfaces = elementMatrix_np[:, 4].astype(float).reshape(-1, 1) 
@@ -188,10 +212,12 @@ class Weight_Optimization():
         
         material_ids = np.array([obj.id for obj in material_objects], dtype=int).reshape(-1, 1)
         
+        # material_ids = np.random.choice([0, 1, 2], size=num_elements).reshape(-1,1)
+        
         surfaces = surfaces.reshape(-1, 1)
         
         num_elements = len(elementMatrix)
-        surfaces = np.random.uniform(low=0.002, high=0.01, size=num_elements).reshape(-1,1)
+        # surfaces = np.random.uniform(low=0.002, high=0.01, size=num_elements).reshape(-1,1)
         
         # Normalize surfaces
         self.surface_factor = np.max(surfaces)
@@ -214,13 +240,14 @@ class Weight_Optimization():
 
         for i, element in enumerate(updated_elementMatrix):
             # Update surface area
-            # val_sruface = float(str(surface_areas[i].VALUE))
             val_surface = surface_areas[i]
             element[4] = val_surface * self.surface_factor
 
             # Lookup and update material object
-            # val_id =  int(str(material_ids[i].VALUE))
+        
             val_id = material_ids[i]
+            
+            val_id =  round(val_id)# WHen I add also materila optimization this line will removed
             material_id = val_id
             material_object = self.get_material_by_id(material_id)
             element[3] = material_object
@@ -266,26 +293,65 @@ class Weight_Optimization():
     
         
     def discrete_constraints(self,opt_vars):
+        '''
+        This constraint is added to avoid using integer variables in our solver. 
+        By implementing the following equation and equating it with zero
+        the constraint must be satisfied. If the constraint is satisfied then we have predermined values for our materials
+        '''
+        # elementMatrix = self.preprocessor.elementMatrix
+        # num_vars = len(opt_vars) // 2 
+        
+        # material_ids = opt_vars[num_vars:]
+        
+        # Z_element = np.zeros([num_vars,1 ])
+        # for index, id in enumerate(material_ids):
+            
+        #     material_id = id
+        #     P = 1
+        #     for im in range(len(self.material_data_base)):
+                
+        #         P = P * (material_id - self.material_data_base[im][1])
+            
+        #     Z_element[index] = P 
+        # Z_surfaces = np.zeros([num_vars])    
+        
+        # combined_vector = np.concatenate((Z_surfaces, Z_element.flatten()))
+        # print('discrete')
+        # return combined_vector
         
         elementMatrix = self.preprocessor.elementMatrix
         num_vars = len(opt_vars) // 2 
         
         material_ids = opt_vars[num_vars:]
         
+   
         Z_element = np.zeros([num_vars,1 ])
         for index, id in enumerate(material_ids):
             
-            material_id = id
-            P = 1
-            for ii in range(len(self.material_data_base)):
+            material = self.get_material_by_id(id)
+
+            Mulitplier = 1
+            Summation = 0
+            for im in range(len(self.material_data_base)):
                 
-                P = P * (material_id - self.material_data_base[ii][1])
+                
+                     
+                a = vars(material)
+                b = vars(self.material_data_base[im][2])
+                    
+                if a == b:
+                    Summation = 0 
+                else: 
+                    Summation = 100
+
+                
+                Mulitplier = Mulitplier * (Summation)
             
-            Z_element[index] = P 
+            Z_element[index] = Mulitplier 
         Z_surfaces = np.zeros([num_vars])    
         
         combined_vector = np.concatenate((Z_surfaces, Z_element.flatten()))
-        print('discrete')
+        print(Z_element)
         return combined_vector
         
 def main():   
