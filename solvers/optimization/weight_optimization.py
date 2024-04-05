@@ -39,6 +39,7 @@ class Weight_Optimization():
         self.preprocessor = self.initial_preprocessor
         self.solver = self.initial_solver
         self.initial_postprocessor = self.initial_postprocessor
+        self.surface_factor = None 
 
         
         # For now We set as allowbable Stress the static values for all elements = Aluminium
@@ -51,24 +52,26 @@ class Weight_Optimization():
     def objective_function(self,opt_vars):
 
         # opt_vars = np.array(x_continuous + x_integer)
-        elementMatrix = self.preprocessor.elementMatrix
+        elementMatrix = self.initial_preprocessor.elementMatrix
         
         #Update the elementMatrix based on the opt_vars
         updated_elementMatrix = self.replace_optimized_vars_to_elementMatrix(opt_vars, elementMatrix)
         
         #Calc total_weight which should be the output of the objective function
         total_weight = self.calculate_total_weight(updated_elementMatrix)
+        
         print(total_weight)
+        
         return total_weight
 
     # Constraint Functions
     # def stress_constraint(self, x_continuous, x_integer):
     def stress_constraint(self, opt_vars):
        
-        
+       
         # opt_vars = np.array(x_continuous + x_integer)
         
-        elementMatrix = self.preprocessor.elementMatrix
+        elementMatrix = self.initial_preprocessor.elementMatrix
         
         #Update the elementMatrix based on the opt_vars
         updated_elementMatrix = self.replace_optimized_vars_to_elementMatrix(opt_vars, elementMatrix)
@@ -82,7 +85,8 @@ class Weight_Optimization():
         
         stress = self.extract_structural_attribute_array(structuralProperties, 
                                                                        'sx')
-                                                                    
+        a = 2 
+        print(a)                                                            
         return np.abs(self.allowableStress) - np.abs(stress)
 
     # Main Optimization Function
@@ -95,40 +99,28 @@ class Weight_Optimization():
         
         initial_point = initial_opt_vars.flatten()  # Initial the starting point for iterations
         
-        constraints = [{'type': 'ineq', 'fun': self.stress_constraint}] # The opt algorithm will ensure that ineq will stay >= 0
-        
-       
-            # ,             {'type': 'ineq', 'fun': self.material_constraint}
+        # constraints = [{'type': 'eq', 'fun': self.discrete_constraints}, 
+        #                {'type': 'ineq', 'fun': self.stress_constraint}
+        #                ] # The opt algorithm will ensure that ineq will stay >= 0
+        constraints = [{'type': 'eq', 'fun': self.discrete_constraints}
+                       ] # The opt algorithm will ensure that ineq will stay >= 0
             
         options = [{'maxiter': 5, 'disp': True}]
         
         result = minimize(fun = self.objective_function, x0 = initial_point,
-                          method = 'trust-constr',  constraints = constraints , 
-                            options={'verbose': 3})
+                          method = 'trust-constr',  constraints = constraints, 
+                          options={'verbose': 3, 'maxiter': 100})
         
         
-       
+        # Remove normalization from the surfaces 
+        num_of_element = len(element_matrix_initial)
+        
+        result.x[:num_of_element] = result.x[:num_of_element] * self.surface_factor
+        
+        print("Objective Function Value:", result.fun)
+        print("Optimization Variables:", result.x)
         print("Optimization Result:", result)
 
-        # optimizer  = GEKKO(remote = False) # Create a GEKKO object
-        # num_vars = len(initial_opt_vars) // 2 
-
-        # # Continous vars 
-        # x_continuous = [optimizer.Var(value=0.005, lb=0) for _ in range(num_vars)]
-        
-        # # Integer Vars
-        # x_integer = [optimizer.sos1([0, 1, 2]) for _ in range(num_vars)]  # SOS1 for selecting among discrete options
-        
-        # optimizer.Minimize (self.objective_function(x_continuous, x_integer))
-        
-        # stress_expr = self.stress_constraint(x_continuous, x_integer)
-        
-        # optimizer.Equation([expr >= 0 for expr in stress_expr])
-        # optimizer.open_folder()
-        
-        
-        # optimizer.options.SOLVER = 1
-        # optimizer.solve(disp = True)
  
        
         
@@ -191,14 +183,22 @@ class Weight_Optimization():
         
         surfaces = elementMatrix_np[:, 4].astype(float).reshape(-1, 1) 
         
+               
         material_objects = elementMatrix_np[:, 3] 
         
         material_ids = np.array([obj.id for obj in material_objects], dtype=int).reshape(-1, 1)
         
         surfaces = surfaces.reshape(-1, 1)
         
+        num_elements = len(elementMatrix)
+        surfaces = np.random.uniform(low=0.002, high=0.01, size=num_elements).reshape(-1,1)
+        
+        # Normalize surfaces
+        self.surface_factor = np.max(surfaces)
+        surfaces = surfaces/max(surfaces)
+        
         for ii in range (len(surfaces)):
-            surfaces[ii] = surfaces[ii] * 10
+            surfaces[ii] = surfaces[ii] 
         combined_vector = np.vstack((surfaces, material_ids))
                 
         return combined_vector, surfaces, material_ids
@@ -216,7 +216,7 @@ class Weight_Optimization():
             # Update surface area
             # val_sruface = float(str(surface_areas[i].VALUE))
             val_surface = surface_areas[i]
-            element[4] = val_surface
+            element[4] = val_surface * self.surface_factor
 
             # Lookup and update material object
             # val_id =  int(str(material_ids[i].VALUE))
@@ -234,7 +234,7 @@ class Weight_Optimization():
         FUnction to extract the materil object from my database
         """
         
-       # material_id = round(material_id, 4)
+        material_id = round(material_id, 4)
         
         for row in self.material_data_base:
             if row[1] == material_id:
@@ -265,11 +265,28 @@ class Weight_Optimization():
         return attribute_values_array
     
         
-    def callback_func(x):
-        # Callback function to display the current solution
-        print(f"Current solution: {x}")
+    def discrete_constraints(self,opt_vars):
         
+        elementMatrix = self.preprocessor.elementMatrix
+        num_vars = len(opt_vars) // 2 
         
+        material_ids = opt_vars[num_vars:]
+        
+        Z_element = np.zeros([num_vars,1 ])
+        for index, id in enumerate(material_ids):
+            
+            material_id = id
+            P = 1
+            for ii in range(len(self.material_data_base)):
+                
+                P = P * (material_id - self.material_data_base[ii][1])
+            
+            Z_element[index] = P 
+        Z_surfaces = np.zeros([num_vars])    
+        
+        combined_vector = np.concatenate((Z_surfaces, Z_element.flatten()))
+        print('discrete')
+        return combined_vector
         
 def main():   
     a = Weight_Optimization()

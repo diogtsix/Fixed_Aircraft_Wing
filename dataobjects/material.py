@@ -1,6 +1,6 @@
 class Material(): 
     
-    def __init__(self, id: int = 1 , elasticModulus: float = 69*1e9, poissonRatio: float = 0.35,
+    def __init__(self, id: int = 0 , elasticModulus: float = 69*1e9, poissonRatio: float = 0.35,
                  density: float = 2700, 
                  shearModulus: float = 25.5*1e9, 
                  name :str =  "Aluminum"):
