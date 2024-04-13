@@ -28,7 +28,11 @@ import tensorflow as tf
 import pandas as pd 
 
 import matplotlib.pyplot as plt 
- 
+
+from pyswarm  import pso
+from deap import base, creator, tools, algorithms
+import random
+
 class Weight_Optimization():
     
     def __init__(self, solverType = 'SLSQP', preprocessorObj = None, solverObj = None, 
@@ -55,7 +59,7 @@ class Weight_Optimization():
         self.preprocessor = self.initial_preprocessor
         self.solver = self.initial_solver
         self.initial_postprocessor = self.initial_postprocessor
-        self.surface_factor = None 
+        self.surface_factor = 0.1 
         self.results = None 
 
         
@@ -63,10 +67,12 @@ class Weight_Optimization():
         SS = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
                                                                        'sx')
         
-        self.allowableStress = SS*(3/4)
-        self.stress_factor = max(np.abs(self.allowableStress))
+        self.allowableStress = SS*(40/4)
+        self.stress_factor = 1 # max(np.abs(self.allowableStress))
         self.allowableStress = self.allowableStress/self.stress_factor
 
+        self.surrogated_model = None 
+        self.optimization_algorithm = 'pso'
 
     # Objective Function
     # def objective_function(self,x_continuous, x_integer):
@@ -107,8 +113,20 @@ class Weight_Optimization():
         stress = self.extract_structural_attribute_array(structuralProperties, 
                                                                        'sx')
       
-        print(np.min((np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor)  ) )                                                         
-        return np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor
+        print(np.min((np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor)  ) )      
+        
+        stress_diff = np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor     
+        
+        if self.optimization_algorithm == 'pso':
+            c =    min(stress_diff)
+            
+        elif self.optimization_algorithm == 'genetic': 
+            
+            c =      stress_diff                                      
+        
+        
+        return c
+
 
     # Main Optimization Function
     def run_optimization(self):
@@ -153,16 +171,6 @@ class Weight_Optimization():
                     constraints=constraints, 
                     options={'ftol': 1e-6, 'eps': 1.5e-4, 'maxiter': 10})
             
-        # lb =  [(-1) for _ in range(num_elements)] 
-        # ub = [(np.inf) for _ in range(num_elements)] 
-        # nlc = NonlinearConstraint(self.stress_constraint, lb, ub)
-        
-        # result = differential_evolution(self.objective_function, bounds, constraints=nlc, 
-        #                                 x0 = initial_point, maxiter = 10, disp = True, 
-        #                                 workers = 1, updating = 'immediate', 
-        #                                 mutation = 0.001)
- 
-        
         # Remove normalization from the surfaces 
         num_of_element = len(element_matrix_initial)
         
@@ -178,80 +186,217 @@ class Weight_Optimization():
         
         
         gekkoObj = GEKKO()
+        numberOfSamples= 70000
         
-        y_measured, xl, features = self.generate_data(numberOfSamples = 10000)
+        filename = f'dataset_sampleNumber_{numberOfSamples}.csv'
+        file_path = os.path.join(os.getcwd()+ '\datasets', filename)
 
-        data_array = np.concatenate([xl.T, y_measured], axis=1)
-        data = pd.DataFrame(data_array, columns=features + ['y'])
+            # Check if the file exists
+        if os.path.exists(file_path):
+            
+            data = pd.read_csv(file_path)
+        else:
+            data = self.generate_data(numberOfSamples = numberOfSamples, 
+                                  file_path = file_path)
+
         label = ['y']
         
         ML_model = 'Neural_Network'
-        
-        
-        
-        if ML_model == 'SVR' :
-        
-            #SVR
-            train , test = train_test_split(data,test_size=0.2,shuffle=True)
-            svr = svm.SVR()
-            svr.fit(train[features],np.ravel(train[label]))
-            r2 = svr.score(test[features],np.ravel(test[label]))
-            print('svr r2:',r2)
-        
-        elif ML_model ==  'Neural_Network':
+        model_path = os.path.join(os.getcwd(), 'ML_models', f'{ML_model}_{numberOfSamples}.keras')
+         
+         
+        if ML_model ==  'Neural_Network':
+            
+            
             # Neural Network
             X = data.drop('y', axis=1)
             y = data['y']
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
             n_features = X_train.shape[1]
-           
-            model = keras.Sequential([
-                keras.Input(shape = (n_features,)),
-                keras.layers.Dense(25, activation='relu'),  # First hidden layer with 128 neurons
-                keras.layers.Dense(25, activation='relu'),  # Second hidden layer with 64 neurons
-                keras.layers.Dense(1)  # Output layer for regression
-            ])
+                
             
-            model.compile(optimizer = 'adam', 
+            if os.path.exists(model_path):
+                model = keras.models.load_model(model_path)
+                
+                model.compile(optimizer = 'adam', 
                         loss = 'mean_squared_error',
                         metrics = ['mean_absolute_error']
                         )
+                                
+                print("Loaded existing model.")
 
-            model.fit(X_train, y_train, epochs=150, batch_size=32, validation_split=0.1)
+            else:
 
-            test_loss, test_mae = model.evaluate(X_test, y_test)
-            print(f"Test Loss (MSE): {test_loss}, Test MAE: {test_mae}")
-
-            y_pred = model.predict(X_test)
             
+                model = keras.Sequential([
+                    keras.Input(shape = (n_features,)),
+                    keras.layers.Dense(15, activation='relu'),  # First hidden layer with 128 neurons
+                    keras.layers.Dense(25, activation='relu'),  # Second hidden layer with 64 neurons
+                    keras.layers.Dense(1)  # Output layer for regression
+                ])
+                
+                model.compile(optimizer = 'adam', 
+                            loss = 'mean_squared_error',
+                            metrics = ['mean_absolute_error']
+                            )
+
+                model.fit(X_train, y_train, epochs=150, batch_size=32, validation_split=0.1)
+
+                model.save(model_path)
+                
+            # test_loss, test_mae = model.evaluate(X_test, y_test)
+            # print(f"Test Loss (MSE): {test_loss}, Test MAE: {test_mae}")
+
+            self.surrogated_model = model 
+            # y_pred = model.predict(X_test)
             
-            # Scatter plot of actual vs. predicted values
-            plt.scatter(y_test, y_pred, alpha=0.5)
+            # # Scatter plot of actual vs. predicted values
+            # plt.scatter(y_test, y_pred, alpha=0.5)
 
-            # Line for perfect predictions
-            plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2)
+            # # Line for perfect predictions
+            # plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2)
 
-            plt.xlabel('Actual')
-            plt.ylabel('Predicted')
-            plt.title('Actual vs. Predicted Values')
-            plt.show()
+            # plt.xlabel('Actual')
+            # plt.ylabel('Predicted')
+            # plt.title('Actual vs. Predicted Values')
+            # plt.show()
+            
+            ## Run optimization
+            opt = self.optimization_algorithm
+             
+            if opt == 'pso' : 
+                self.particle_swarm_optimization_method(n_features)
+                
+            elif opt == 'genetic':
+                self.genetic_algorithm_method(n_features)
+
+    
+    def genetic_algorithm_method(self, n_features):
+        
+        
+        HALF_FEATURES = n_features // 2 
+        
+        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+        creator.create("Individual", list, fitness=creator.FitnessMin)
+        
+        toolbox = base.Toolbox()
+        
+        
+        # Attribute generators
+        toolbox.register("attr_float", random.uniform, 0.05,3)  # For continuous features (0.001, 0.01)
+        toolbox.register("attr_int", random.choice, [0, 1, 2])  # For discrete features
 
         
+        # Structure initializers
+        toolbox.register("individual", tools.initIterate, creator.Individual,
+                        lambda: [toolbox.attr_float() for _ in range(HALF_FEATURES)] +
+                                [toolbox.attr_int() for _ in range(HALF_FEATURES)])
+        toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
+        
+        # Register genetic operators
+        toolbox.register("mate", tools.cxTwoPoint)
+        toolbox.register("mutate", tools.mutUniformInt, low=0, up=2, indpb=0.05)
+        toolbox.register("select", tools.selTournament, tournsize=3)
+        toolbox.register("evaluate", self.surrogated_model_objective_function)
+        
+        
+        pop = toolbox.population(n=50)
+        hof = tools.HallOfFame(1)  # Only the best individual kept
+
+        stats = tools.Statistics(lambda ind: ind.fitness.values)
+        stats.register("avg", np.mean)
+        stats.register("min", np.min)
+        stats.register("max", np.max)
+
+        pop, log = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=50, 
+                                    stats=stats, halloffame=hof, verbose=True)
+        
+        print("Best individual is: ", hof[0], "with fitness: ", hof[0].fitness)
+    
+    def particle_swarm_optimization_method(self, n_features ):
+        
+            half_point = n_features // 2
+            lb = np.array([0.001] * half_point + [0] * (n_features - half_point))
+            ub = np.array([2] * half_point + [2] * (n_features - half_point))
+            
+            xopt, fopt = pso(self.surrogated_model_objective_function, lb,
+                             ub, f_ieqcons = self.stress_constraint , maxiter=1000, 
+                             debug=True)
+            
+            print("Optimal solution:", xopt)
+            print("Optimal objective value:", fopt)
+            
+        
+    def surrogated_model_objective_function(self, x):
+        
+        
+        
+        if self.optimization_algorithm == 'pso':
+        
+            x_discrete = np.copy(x)
+            x_discrete[271:] = np.clip(np.round(x_discrete[271:]), 0, 2)
+    
+            weight = self.surrogated_model.predict([np.array([x_discrete])])
+            objValue = weight
+            
+        elif self.optimization_algorithm == 'genetic':
+            
+            c = self.stress_constraint(x)
+            
+            if any(ci <= 0 for ci in c):
+                penalty = 1e4
+            else:
+                penalty = 0
+                print(penalty)
+                
+            weight = self.surrogated_model.predict([np.array([x])])    
+            objValue = weight+ penalty
+        
+        
+        print(weight)
+            
+        
+    
+        
+        
+        
+        return objValue
+    
         
         
     
     
-    def generate_data(self, numberOfSamples):
+    def generate_data(self, numberOfSamples, file_path):
         
         elementMatrix = self.initial_solver.preprocessor.elementMatrix
-        
         mat_size = len(elementMatrix)
         
-        first_half = np.random.uniform(low=0.001, high=0.01, size=(mat_size, numberOfSamples))
+        # Calculate sample sizes for each group
+        num_increasing_samples = int(0.15 * numberOfSamples)
+        num_random_samples = numberOfSamples - num_increasing_samples
+        
+        first_half_random = np.random.uniform(low=0.001, high=0.01, size=(mat_size, num_random_samples))
+
+        
+        second_half_random = np.random.choice([0, 1, 2], size=(mat_size, num_random_samples))
+        
+            # Generate increasing samples (15%)
+        step_size = (0.01 - 0.001) / num_increasing_samples
+        first_half_increasing = np.tile(np.arange(0.001, 0.01, step_size)[:num_increasing_samples], (mat_size, 1))
+        second_half_increasing = np.tile(np.arange(0, num_increasing_samples) % 3, (mat_size, 1))
+
+        # Combine the two parts
+        first_half = np.hstack((first_half_random, first_half_increasing))
+        second_half = np.hstack((second_half_random, second_half_increasing))
+
         self.surface_factor = np.max(first_half)
         first_half = first_half/self.surface_factor 
         
-        second_half = np.random.choice([0, 1, 2], size=(mat_size, numberOfSamples))
+        indices = np.random.permutation(numberOfSamples)
+        first_half = first_half[:, indices]
+        second_half = second_half[:, indices]
+        
 
         samples = np.vstack((first_half, second_half))
         
@@ -272,7 +417,14 @@ class Weight_Optimization():
         
         y_measured_reshaped = y_measured.reshape(-1, 1)  # Makes y_measured a 2D array with a single colum
         
-        return y_measured_reshaped, samples, features 
+        data_array = np.concatenate([samples.T, y_measured_reshaped], axis=1)
+        data = pd.DataFrame(data_array, columns=features + ['y'])
+        
+        # Export dataset
+        current_directory = os.getcwd()
+        data.to_csv(file_path, index=False)
+        return data
+    
     
     def material_constraint(x):
         # Assuming x is an array where the first half represents surfaces
