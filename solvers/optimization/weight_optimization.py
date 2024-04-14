@@ -2,43 +2,43 @@
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-import numpy as np
 
-from scipy.optimize import minimize
-from scipy.optimize import differential_evolution
-from scipy.optimize import NonlinearConstraint
 
 from solvers.structural_dynamics.preprocessor import Preprocessor
 from solvers.structural_dynamics.solver import Solver
 from solvers.structural_dynamics.postprocess import Postprocess
-
 from solvers.optimization.material_database import generate_material_np_matrix
 
-from gekko import GEKKO
 
 from sklearn.model_selection import train_test_split
-from sklearn import svm
-from sklearn.neural_network import MLPRegressor
 from tensorflow import keras
-import tensorflow as tf
-import copy
 import pandas as pd 
+# import tensorflow as tf
 
+import numpy as np
 import matplotlib.pyplot as plt 
 
 from pyswarm  import pso
+# DEAP library for Genetic Algorithm
 from deap import base, creator, tools, algorithms
+
+import copy
 import random
 
 class Weight_Optimization():
     
-    def __init__(self, solverType = 'genetic', preprocessorObj = None, solverObj = None, 
-                postprocessorObj = None, 
-                optimize_with_surrogate_ML_model = False):
+    def __init__(self, solverType = 'genetic', 
+                 preprocessorObj = None, solverObj = None, postprocessorObj = None, 
+                optimize_with_surrogate_ML_model = False, 
+                discrete_surface_values = [0.0025, 0.0031, 0.0041, 0.0071, 0.0091, 0.011, 0.0013]):
         
+        # Import material database
+        # In order to add in our current model more materials in the database, we need to parametrize some 
+        # parts of this class because the material_ids selection [0, 1, 2] are hardcoded at the moment.
         self.material_data_base = generate_material_np_matrix()
+        
        # Set Wing Objects from structural dynamics model
-        material = self.get_material('Titanium')
+        material = self.get_material('Steel')
         if preprocessorObj == None :
             self.initial_preprocessor = Preprocessor(elementMaterial = material)
         else:
@@ -54,19 +54,18 @@ class Weight_Optimization():
        
                 
         self.preprocessor = Preprocessor(elementMaterial = material)
-
-        self.surface_factor = 1
-        self.results = None 
-
         
         # For now We set as allowbable Stress the static values for all elements = Aluminium
-        SS = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
+        V_static_for_initial_Wing = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
                                                                        'sx')
         
-        self.allowableStress = SS*(3/4)
-        self.stress_factor = max(np.abs(self.allowableStress))
+        self.allowableStress = V_static_for_initial_Wing*(3/4) # (3/4) is arbitary
+        self.stress_factor = max(np.abs(self.allowableStress)) # Factor for normalization
         self.allowableStress = self.allowableStress/self.stress_factor
 
+        self.discrete_surface_values = discrete_surface_values
+        self.surface_factor = 1 # Surface factor for normalization current = 1 which means we don't use it 
+        self.results = None 
         self.surrogated_model = None 
         self.optimization_algorithm = solverType
         self.optimize_with_surrogate_ML_model = optimize_with_surrogate_ML_model
@@ -94,6 +93,7 @@ class Weight_Optimization():
         if self.optimization_algorithm == 'genetic':  
             c = self.stress_constraint(opt_vars)     
             if any(ci < 0 for ci in c):
+                
                     penalty = 1e4 * np.abs(min(c))
                     
                     total_weight = weight + penalty
@@ -160,6 +160,7 @@ class Weight_Optimization():
         """
         # Statement in case we want to run with ML surrogated model or we want to run with original Objective Function
         if self.optimize_with_surrogate_ML_model == True:
+            
             numberOfSamples= 30000 # 35000 might be better to avoid overfitting
             
             filename = f'dataset_sampleNumber_{numberOfSamples}.csv'
@@ -221,12 +222,14 @@ class Weight_Optimization():
                     
                 self.surrogated_model = model 
  
-            ## Run optimization            
-            if self.optimization_algorithm == 'pso' : 
-                self.particle_swarm_optimization_method(n_features)
+        ## Run optimization   
+        num_of_vars = 2 * len(self.preprocessor.elementMatrix)         
+        if self.optimization_algorithm == 'pso' : 
+
+            self.particle_swarm_optimization_method(num_of_vars)
                 
-            elif self.optimization_algorithm == 'genetic':
-                self.genetic_algorithm_method(n_features)
+        elif self.optimization_algorithm == 'genetic':
+            self.genetic_algorithm_method(num_of_vars)
 
     
     def genetic_algorithm_method(self, n_features):
@@ -248,7 +251,7 @@ class Weight_Optimization():
 
         
         # Attribute generators
-        toolbox.register("attr_surfaces", random.choice, [0.0025, 0.0031, 0.0041, 0.0071, 0.0091, 0.011, 0.0013])  # For continuous features (0.001, 0.01)
+        toolbox.register("attr_surfaces", random.choice, self.discrete_surface_values)  # For continuous features (0.001, 0.01)
 
         toolbox.register("attr_int", random.choice, [0, 1 ,2])  # For discrete features
 
@@ -262,7 +265,7 @@ class Weight_Optimization():
         # Register genetic operators
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
         toolbox.register("mate", tools.cxUniform, indpb=0.7)  # Uniform crossover
-        toolbox.register("mutate", self.custom_mutation, indpb = 1, allowed_values=[0.0031, 0.0041, 0.0071, 0.0091, 0.011, 0.0013])
+        toolbox.register("mutate", self.custom_mutation, indpb = 1, allowed_values=self.discrete_surface_values)
         
         toolbox.register("select", tools.selTournament, tournsize=5)
         
