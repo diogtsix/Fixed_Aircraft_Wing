@@ -32,8 +32,9 @@ import random
 
 class Weight_Optimization():
     
-    def __init__(self, solverType = 'SLSQP', preprocessorObj = None, solverObj = None, 
-                postprocessorObj = None):
+    def __init__(self, solverType = 'genetic', preprocessorObj = None, solverObj = None, 
+                postprocessorObj = None, 
+                optimize_with_surrogate_ML_model = False):
         
         self.material_data_base = generate_material_np_matrix()
        # Set Wing Objects from structural dynamics model
@@ -51,9 +52,7 @@ class Weight_Optimization():
         else:
             self.initial_postprocessor = postprocessorObj
        
-        
-        self.solverType = solverType
-        
+                
         self.preprocessor = Preprocessor(elementMaterial = material)
 
         self.surface_factor = 1
@@ -69,11 +68,18 @@ class Weight_Optimization():
         self.allowableStress = self.allowableStress/self.stress_factor
 
         self.surrogated_model = None 
-        self.optimization_algorithm = 'pso'
+        self.optimization_algorithm = solverType
+        self.optimize_with_surrogate_ML_model = optimize_with_surrogate_ML_model
 
     # Objective Function
-    # def objective_function(self,x_continuous, x_integer):
     def objective_function(self,opt_vars):
+        
+        """
+            This is the objective function of the total weight calculations. 
+            Inputs :optimization variables 
+            Output : Weight of the wing
+            
+        """
 
         # opt_vars = np.array(x_continuous + x_integer)
         elementMatrix = self.initial_preprocessor.elementMatrix
@@ -83,8 +89,6 @@ class Weight_Optimization():
         
         #Calc total_weight which should be the output of the objective function
         weight = self.calculate_total_weight(updated_elementMatrix)
-        
-        
         
         
         if self.optimization_algorithm == 'genetic':  
@@ -112,9 +116,12 @@ class Weight_Optimization():
 
     # Constraint Functions
     def stress_constraint(self, opt_vars):
-       
-       
-        # opt_vars = np.array(x_continuous + x_integer)
+        """
+            This is the stress constraint function. The allowble stress is set inside the constructor of 
+            the weight optimization class. Here we calculate the stresses through the wing based on the otpimization 
+            variable vector and we compare the solution. 
+            The default value for the allowable stress is (3/4) Vstatic of the model. 
+        """
         
         elementMatrix = self.initial_preprocessor.elementMatrix
         
@@ -130,9 +137,7 @@ class Weight_Optimization():
         
         stress = self.extract_structural_attribute_array(structuralProperties, 
                                                                        'sx')
-      
-        # print(np.min((np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor)  ) )     
-        
+              
         stress_diff = np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor     
         
         if self.optimization_algorithm == 'pso':
@@ -142,87 +147,94 @@ class Weight_Optimization():
         elif self.optimization_algorithm == 'genetic': 
             
             c =      stress_diff                                      
-           
-        
+
         return stress_diff
 
 
     # Main Optimization Function
     def run_optimization(self):
-  
-        numberOfSamples= 30000 # 35000 might be better to avoid overfitting
-        
-        filename = f'dataset_sampleNumber_{numberOfSamples}.csv'
-        file_path = os.path.join(os.getcwd()+ '\datasets', filename)
 
-            # Check if the file exists
-        if os.path.exists(file_path):
+        """
+            In this function we Generate Data for ML training, we Train the Neural Network,
+            and after that we run the optimization using the surrogated machine learning model. 
+        """
+        # Statement in case we want to run with ML surrogated model or we want to run with original Objective Function
+        if self.optimize_with_surrogate_ML_model == True:
+            numberOfSamples= 30000 # 35000 might be better to avoid overfitting
             
-            data = pd.read_csv(file_path)
-        else:
-            data = self.generate_data(numberOfSamples = numberOfSamples, 
-                                  file_path = file_path)
+            filename = f'dataset_sampleNumber_{numberOfSamples}.csv'
+            file_path = os.path.join(os.getcwd()+ '\datasets', filename)
 
-        label = ['y']
-        
-        ML_model = 'Neural_Network'
-        model_path = os.path.join(os.getcwd(), 'ML_models', f'{ML_model}_{numberOfSamples}.keras')
-         
-         
-        if ML_model ==  'Neural_Network':
-            
-            
-            # Neural Network
-            X = data.drop('y', axis=1)
-            y = data['y']
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-            n_features = X_train.shape[1]
+                # Check if the file exists
+            if os.path.exists(file_path):
                 
-            
-            if os.path.exists(model_path):
-                model = keras.models.load_model(model_path)
-                
-                model.compile(optimizer = 'adam', 
-                        loss = 'mean_squared_error',
-                        metrics = ['mean_absolute_error']
-                        )
-                                
-                print("Loaded existing model.")
-
+                data = pd.read_csv(file_path)
             else:
+                data = self.generate_data(numberOfSamples = numberOfSamples, 
+                                    file_path = file_path)
 
+            label = ['y']
             
-                model = keras.Sequential([
-                    keras.Input(shape = (n_features,)),
-                    keras.layers.Dense(500, activation='relu'),
-                    keras.layers.Dense(250, activation='relu'),  # First hidden layer with 128 neurons
-                    keras.layers.Dense(15, activation='relu'),  # Second hidden layer with 64 neurons
-                    keras.layers.Dense(1)  # Output layer for regression
-                ])
+            ML_model = 'Neural_Network'
+            model_path = os.path.join(os.getcwd(), 'ML_models', f'{ML_model}_{numberOfSamples}.keras')
+            
+            
+            if ML_model ==  'Neural_Network':
                 
-                model.compile(optimizer = 'adam', 
+                
+                # Neural Network
+                X = data.drop('y', axis=1)
+                y = data['y']
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                n_features = X_train.shape[1]
+                    
+                
+                if os.path.exists(model_path):
+                    model = keras.models.load_model(model_path)
+                    
+                    model.compile(optimizer = 'adam', 
                             loss = 'mean_squared_error',
                             metrics = ['mean_absolute_error']
                             )
+                                    
+                    print("Loaded existing model.")
 
-                model.fit(X_train, y_train, epochs=125, batch_size=32, validation_split=0.1)
+                else:
 
-                model.save(model_path)
                 
-            self.surrogated_model = model 
+                    model = keras.Sequential([
+                        keras.Input(shape = (n_features,)),
+                        keras.layers.Dense(500, activation='relu'),
+                        keras.layers.Dense(250, activation='relu'),  # First hidden layer with 128 neurons
+                        keras.layers.Dense(15, activation='relu'),  # Second hidden layer with 64 neurons
+                        keras.layers.Dense(1)  # Output layer for regression
+                    ])
+                    
+                    model.compile(optimizer = 'adam', 
+                                loss = 'mean_squared_error',
+                                metrics = ['mean_absolute_error']
+                                )
+
+                    model.fit(X_train, y_train, epochs=125, batch_size=32, validation_split=0.1)
+
+                    model.save(model_path)
+                    
+                self.surrogated_model = model 
  
-            ## Run optimization
-            opt = self.optimization_algorithm
-             
-            if opt == 'pso' : 
+            ## Run optimization            
+            if self.optimization_algorithm == 'pso' : 
                 self.particle_swarm_optimization_method(n_features)
                 
-            elif opt == 'genetic':
+            elif self.optimization_algorithm == 'genetic':
                 self.genetic_algorithm_method(n_features)
 
     
     def genetic_algorithm_method(self, n_features):
         
+        """
+            Genetic Algorithm Optimization Method is working properly. 
+            Here is the implementation using DEAP library. 
+        """
         
         HALF_FEATURES = n_features // 2 
         
@@ -236,37 +248,32 @@ class Weight_Optimization():
 
         
         # Attribute generators
-        # toolbox.register("attr_float", random.uniform, 0.0005,0.1)  # For continuous features (0.001, 0.01)
         toolbox.register("attr_surfaces", random.choice, [0.0025, 0.0031, 0.0041, 0.0071, 0.0091, 0.011, 0.0013])  # For continuous features (0.001, 0.01)
 
         toolbox.register("attr_int", random.choice, [0, 1 ,2])  # For discrete features
 
         
-        # Structure initializers
-        # toolbox.register("individual", tools.initIterate, creator.Individual,
-        #                 lambda: [toolbox.attr_float() for _ in range(HALF_FEATURES)] +
-        #                         [toolbox.attr_int() for _ in range(HALF_FEATURES)])
-        
+        # Structure initializers        
         toolbox.register("individual", tools.initIterate, creator.Individual,
                         lambda: [toolbox.attr_surfaces() for _ in range(HALF_FEATURES)] +
                                 [toolbox.attr_int() for _ in range(HALF_FEATURES)])
         
-        toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-        # toolbox.register("select", tools.selStochasticUniversalSampling)
         
         # Register genetic operators
-        
-        
-
-
+        toolbox.register("population", tools.initRepeat, list, toolbox.individual)
         toolbox.register("mate", tools.cxUniform, indpb=0.7)  # Uniform crossover
         toolbox.register("mutate", self.custom_mutation, indpb = 1, allowed_values=[0.0031, 0.0041, 0.0071, 0.0091, 0.011, 0.0013])
         
-        # toolbox.register("mutate", tools.mutUniformInt, low=0, up=2, indpb=0.3) # indpb is controlling the search space. Higher values higher steps
         toolbox.register("select", tools.selTournament, tournsize=5)
-        # toolbox.register("evaluate", self.surrogated_model_objective_function)
-        toolbox.register("evaluate", self.objective_function)
+        
+        
+        
        
+        if self.optimize_with_surrogate_ML_model == True:
+            toolbox.register("evaluate", self.surrogated_model_objective_function)
+        else: 
+            toolbox.register("evaluate", self.objective_function)
+                
         
         pop = toolbox.population(n=100)
         hof = tools.HallOfFame(1)  # Only the best individual kept
@@ -282,10 +289,33 @@ class Weight_Optimization():
         print("Best individual is: ", hof[0], "with fitness: ", hof[0].fitness)
         
         
-
+        final_population = pop
+        best_individual = hof.items[0]
+        logbook = log
+        
+        #Store Results
+        self.results = {
+            "final_population": final_population,   
+            "best_individual": {
+                "genotype": list(best_individual),
+                "fitness": best_individual.fitness.values
+            },
+            "statistics": {
+                "generations": log.select("gen"),
+                "average_fitness": log.select("avg"),
+                "min_fitness": log.select("min"),
+                "max_fitness": log.select("max")
+            },
+            "logbook": logbook
+        }
 
     
     def particle_swarm_optimization_method(self, n_features ):
+            """
+            Particle Swarm Optimization Algorithm is implemented in this function. 
+            CUrrently the implementation is not working properly, and the parameters
+            needs to be tuned.
+            """
         
             half_point = n_features // 2
             lb = np.array([0.0025] * half_point + [0] * (n_features - half_point))
@@ -302,18 +332,21 @@ class Weight_Optimization():
                 'minfunc': 1-1,           # Minimum change in function value for termination default value = 1e-8
             }
             
-
-            # xopt, fopt = pso(self.surrogated_model_objective_function, lb, ub, f_ieqcons=self.stress_constraint, **kwargs)
-            
-            xopt, fopt = pso(self.objective_function, lb, ub, f_ieqcons=self.stress_constraint, **kwargs)
+            if self.optimize_with_surrogate_ML_model == True:
+                xopt, fopt = pso(self.surrogated_model_objective_function, lb, ub, f_ieqcons=self.stress_constraint, **kwargs)
+            else: 
+                xopt, fopt = pso(self.objective_function, lb, ub, f_ieqcons=self.stress_constraint, **kwargs)
 
             print("Optimal solution:", xopt)
             print("Optimal objective value:", fopt)
             
+            self.results = [xopt , fopt]
+            
         
     def surrogated_model_objective_function(self, x):
-        
-        
+        """
+        This function represents the objective function for the surrogate ML model optimization method. 
+        """
         
         if self.optimization_algorithm == 'pso':
         
@@ -346,12 +379,13 @@ class Weight_Optimization():
         
         return objValue
     
-        
-        
-    
-    
+         
     def generate_data(self, numberOfSamples, file_path):
-        
+        """
+        This method is used for data generation to train the ML model. 
+        We use random values for surface and material ids.
+        At the end of this function a .csv file is saved for latter use when numberOfSamples remains the same. 
+        """
         elementMatrix = self.initial_solver.preprocessor.elementMatrix
         mat_size = len(elementMatrix)
         
@@ -364,7 +398,7 @@ class Weight_Optimization():
         
         second_half_random = np.random.choice([0, 1, 2], size=(mat_size, num_random_samples))
         
-            # Generate increasing samples (15%)
+        # Generate increasing samples (15%)
         step_size = (0.01 - 0.001) / num_increasing_samples
         first_half_increasing = np.tile(np.arange(0.0005, 0.018, step_size)[:num_increasing_samples], (mat_size, 1))
         second_half_increasing = np.tile(np.arange(0, num_increasing_samples) % 3, (mat_size, 1))
@@ -408,31 +442,12 @@ class Weight_Optimization():
         current_directory = os.getcwd()
         data.to_csv(file_path, index=False)
         return data
-    
-    
-    def material_constraint(x):
-        # Assuming x is an array where the first half represents surfaces
-        # and the second half represents material IDs
-        material_ids = [1, 2, 3] 
-        num_elements = len(x) // 2  # Assuming x is structured as [surfaces, material_ids]
-        material_vars = x[num_elements:]  # Extract material variables from x
         
-        # Initialize penalty
-        penalty = 0
-        
-        # Calculate the penalty for each material variable being away from discrete material IDs
-        for m_var in material_vars:
-            # Calculate the minimum distance to the nearest material ID
-            min_distance = min(abs(m_var - mid) for mid in material_ids)
-            
-            penalty += min_distance**30
-            print(material_vars)
-            print(penalty)
-        return -penalty
-       
         
     def calculate_total_weight(self, elementMatrix):
-        
+        """
+        Given as an input the element Matrix, we calculate the total weight of the wing.
+        """
         total_weight = 0
         
         for element in elementMatrix:
@@ -463,6 +478,10 @@ class Weight_Optimization():
     
     
     def extract_optimization_vars_from_elementMatrix(self, elementMatrix_input):
+        """
+        This class method is for extracting the vector of [surfaces materials] from them elementsMatrix.
+        This function is used for comparison purposes
+        """
         elementMatrix = elementMatrix_input
         
         num_elements = len(elementMatrix)
@@ -522,10 +541,9 @@ class Weight_Optimization():
             
     def get_material_by_id(self, material_id):
         """
-        FUnction to extract the materil object from my database
+        FUnction to extract the materil object from my database. 
         """
-        
-        # material_id = round(material_id, 4)
+
         
         if material_id <= 0 :
             material_id = 0 
