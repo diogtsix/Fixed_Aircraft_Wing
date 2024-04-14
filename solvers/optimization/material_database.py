@@ -39,6 +39,7 @@ def generate_material_matrix(json_filepath='Utilities/material_database.json'):
     for material_name, properties in material_db.items():
         #material_id = properties.pop('id', None) 
         material_obj = Material(**properties)
+        material_obj.name = material_name
         #material_matrix.append([material_name, material_id, material_obj])
         material_matrix.append([material_name, material_obj.id, material_obj])
 

@@ -15,16 +15,13 @@ from solvers.structural_dynamics.postprocess import Postprocess
 from solvers.optimization.material_database import generate_material_np_matrix
 
 from gekko import GEKKO
-from gekko import ML
-from gekko.ML import Gekko_NN_TF,Gekko_LinearRegression
-from gekko.ML import Bootstrap,Conformist,CustomMinMaxGekkoScaler
 
 from sklearn.model_selection import train_test_split
 from sklearn import svm
 from sklearn.neural_network import MLPRegressor
 from tensorflow import keras
 import tensorflow as tf
-
+import copy
 import pandas as pd 
 
 import matplotlib.pyplot as plt 
@@ -40,8 +37,9 @@ class Weight_Optimization():
         
         self.material_data_base = generate_material_np_matrix()
        # Set Wing Objects from structural dynamics model
+        material = self.get_material('Titanium')
         if preprocessorObj == None :
-            self.initial_preprocessor = Preprocessor(elementMaterial = self.get_material('Aluminum'))
+            self.initial_preprocessor = Preprocessor(elementMaterial = material)
         else:
             self.initial_preprocessor = preprocessorObj
         if solverObj == None:
@@ -56,19 +54,18 @@ class Weight_Optimization():
         
         self.solverType = solverType
         
-        self.preprocessor = self.initial_preprocessor
-        self.solver = self.initial_solver
-        self.initial_postprocessor = self.initial_postprocessor
+        self.preprocessor = Preprocessor(elementMaterial = material)
+
         self.surface_factor = 1
         self.results = None 
 
         
         # For now We set as allowbable Stress the static values for all elements = Aluminium
         SS = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
-                                                                       'ex')
+                                                                       'sx')
         
-        self.allowableStress = SS*(4/4)
-        self.stress_factor = 1 # max(np.abs(self.allowableStress))
+        self.allowableStress = SS*(3/4)
+        self.stress_factor = max(np.abs(self.allowableStress))
         self.allowableStress = self.allowableStress/self.stress_factor
 
         self.surrogated_model = None 
@@ -85,31 +82,35 @@ class Weight_Optimization():
         updated_elementMatrix = self.replace_optimized_vars_to_elementMatrix(opt_vars, elementMatrix)
         
         #Calc total_weight which should be the output of the objective function
-        total_weight = self.calculate_total_weight(updated_elementMatrix)
+        weight = self.calculate_total_weight(updated_elementMatrix)
         
         
         
         
         if self.optimization_algorithm == 'genetic':  
             c = self.stress_constraint(opt_vars)     
-            if any(ci <= 0 for ci in c):
-                    penalty = 1e4
+            if any(ci < 0 for ci in c):
+                    penalty = 1e4 * np.abs(min(c))
                     
-                    total_weight = total_weight + penalty
-                
+                    total_weight = weight + penalty
+
             else:
                     penalty = 0
                 
-            total_weight = (total_weight,)    
+            total_weight = (total_weight,)   
+            
+            print(f'Real Weight = {weight} || Weight with Penalty = {total_weight} || Constraint Minumum = {min(c)} || Penalty Value = {penalty}') 
                 
+        else:
+            total_weight = weight
+            
+            print(f'Weight = {total_weight}')
         
-        
-        print(f'total_weight = {total_weight}')  
+  
             
         return total_weight
 
     # Constraint Functions
-    # def stress_constraint(self, x_continuous, x_integer):
     def stress_constraint(self, opt_vars):
        
        
@@ -132,78 +133,24 @@ class Weight_Optimization():
       
         # print(np.min((np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor)  ) )     
         
-        stress_diff = self.allowableStress - stress/self.stress_factor     
+        stress_diff = np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor     
         
         if self.optimization_algorithm == 'pso':
             c =    min(stress_diff)
+            print(f' Constraint Minimum Value = {c} ')
             
         elif self.optimization_algorithm == 'genetic': 
             
             c =      stress_diff                                      
+           
         
-        print(c)
-        return c
+        return stress_diff
 
 
     # Main Optimization Function
     def run_optimization(self):
-        
-        #Solve win for initial point (static solution)
-        element_matrix_initial = self.initial_solver.preprocessor.elementMatrix
-        num_elements = len(element_matrix_initial) 
-        
-        initial_opt_vars, initi_surfaces, init_ids = self.extract_optimization_vars_from_elementMatrix(element_matrix_initial)
-        
-        initial_point = initial_opt_vars.flatten()  # Initial the starting point for iterations
-        
-        # Create the bounds for opt_vars
-        bounds_first_half = [(0.1, 10) for _ in range(num_elements)] 
-        bounds_second_half = [(0, 2) for _ in range(num_elements)] 
-        bounds = bounds_first_half + bounds_second_half 
-        
-
-        
-        constraints = [{'type': 'ineq', 'fun': self.stress_constraint}
-                       ] # The opt algorithm will ensure that ineq will stay >= 0
-        
-        
-        # constraints = [{'type': 'eq', 'fun': self.discrete_constraints}
-        #                ] 
-        
-        if self.solverType == 'trust-constr':
-            result = minimize(fun = self.objective_function, x0 = initial_point,
-                            method = 'trust-constr', 
-                            bounds = bounds, 
-                            constraints = constraints, 
-                            options={'verbose': 3, 'maxiter': 10, 
-                            'initial_tr_radius': 5})
-            
-        elif self.solverType == 'SLSQP': 
-            
-            # For SLSQP
-            result = minimize(fun=self.objective_function, 
-                    x0=initial_point, 
-                    method='SLSQP', 
-                    bounds=bounds, 
-                    constraints=constraints, 
-                    options={'ftol': 1e-6, 'eps': 1.5e-4, 'maxiter': 10})
-            
-        # Remove normalization from the surfaces 
-        num_of_element = len(element_matrix_initial)
-        
-        result.x[:num_of_element] = result.x[:num_of_element] * self.surface_factor
-        
-        print("Objective Function Value:", result.fun)
-        print("Optimization Variables:", result.x)
-        print("Optimization Result:", result)
-         
-        self.results = result
- 
-    def run_optimization_ML(self):
-        
-        
-        gekkoObj = GEKKO()
-        numberOfSamples= 75000
+  
+        numberOfSamples= 30000 # 35000 might be better to avoid overfitting
         
         filename = f'dataset_sampleNumber_{numberOfSamples}.csv'
         file_path = os.path.join(os.getcwd()+ '\datasets', filename)
@@ -247,8 +194,9 @@ class Weight_Optimization():
             
                 model = keras.Sequential([
                     keras.Input(shape = (n_features,)),
-                    keras.layers.Dense(15, activation='relu'),  # First hidden layer with 128 neurons
-                    keras.layers.Dense(25, activation='relu'),  # Second hidden layer with 64 neurons
+                    keras.layers.Dense(500, activation='relu'),
+                    keras.layers.Dense(250, activation='relu'),  # First hidden layer with 128 neurons
+                    keras.layers.Dense(15, activation='relu'),  # Second hidden layer with 64 neurons
                     keras.layers.Dense(1)  # Output layer for regression
                 ])
                 
@@ -257,27 +205,12 @@ class Weight_Optimization():
                             metrics = ['mean_absolute_error']
                             )
 
-                model.fit(X_train, y_train, epochs=150, batch_size=32, validation_split=0.1)
+                model.fit(X_train, y_train, epochs=125, batch_size=32, validation_split=0.1)
 
                 model.save(model_path)
                 
-            # test_loss, test_mae = model.evaluate(X_test, y_test)
-            # print(f"Test Loss (MSE): {test_loss}, Test MAE: {test_mae}")
-
             self.surrogated_model = model 
-            # y_pred = model.predict(X_test)
-            
-            # Scatter plot of actual vs. predicted values
-            # plt.scatter(y_test, y_pred, alpha=0.5)
-
-            # # Line for perfect predictions
-            # plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2)
-
-            # plt.xlabel('Actual')
-            # plt.ylabel('Predicted')
-            # plt.title('Actual vs. Predicted Values')
-            # plt.show()
-            
+ 
             ## Run optimization
             opt = self.optimization_algorithm
              
@@ -293,33 +226,49 @@ class Weight_Optimization():
         
         HALF_FEATURES = n_features // 2 
         
-        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-        creator.create("Individual", list, fitness=creator.FitnessMin)
+        if not hasattr(creator, 'FitnessMin'):
+            creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+        if not hasattr(creator, 'Individual'):
+            creator.create("Individual", list, fitness=creator.FitnessMin)
         
         toolbox = base.Toolbox()
-        
+    
+
         
         # Attribute generators
-        toolbox.register("attr_float", random.uniform, 0.0005,0.1)  # For continuous features (0.001, 0.01)
-        toolbox.register("attr_int", random.choice, [0, 1, 2])  # For discrete features
+        # toolbox.register("attr_float", random.uniform, 0.0005,0.1)  # For continuous features (0.001, 0.01)
+        toolbox.register("attr_surfaces", random.choice, [0.0025, 0.0031, 0.0041, 0.0071, 0.0091, 0.011, 0.0013])  # For continuous features (0.001, 0.01)
+
+        toolbox.register("attr_int", random.choice, [0, 1 ,2])  # For discrete features
 
         
         # Structure initializers
+        # toolbox.register("individual", tools.initIterate, creator.Individual,
+        #                 lambda: [toolbox.attr_float() for _ in range(HALF_FEATURES)] +
+        #                         [toolbox.attr_int() for _ in range(HALF_FEATURES)])
+        
         toolbox.register("individual", tools.initIterate, creator.Individual,
-                        lambda: [toolbox.attr_float() for _ in range(HALF_FEATURES)] +
+                        lambda: [toolbox.attr_surfaces() for _ in range(HALF_FEATURES)] +
                                 [toolbox.attr_int() for _ in range(HALF_FEATURES)])
+        
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-        toolbox.register("select", tools.selStochasticUniversalSampling)
+        # toolbox.register("select", tools.selStochasticUniversalSampling)
         
         # Register genetic operators
-        toolbox.register("mate", tools.cxTwoPoint)
-        toolbox.register("mutate", tools.mutUniformInt, low=0, up=2, indpb=0.2) # indpb is controlling the search space. Higher values higher steps
-        toolbox.register("select", tools.selTournament, tournsize=3)
+        
+        
+
+
+        toolbox.register("mate", tools.cxUniform, indpb=0.7)  # Uniform crossover
+        toolbox.register("mutate", self.custom_mutation, indpb = 1, allowed_values=[0.0031, 0.0041, 0.0071, 0.0091, 0.011, 0.0013])
+        
+        # toolbox.register("mutate", tools.mutUniformInt, low=0, up=2, indpb=0.3) # indpb is controlling the search space. Higher values higher steps
+        toolbox.register("select", tools.selTournament, tournsize=5)
         # toolbox.register("evaluate", self.surrogated_model_objective_function)
         toolbox.register("evaluate", self.objective_function)
        
         
-        pop = toolbox.population(n=50)
+        pop = toolbox.population(n=100)
         hof = tools.HallOfFame(1)  # Only the best individual kept
 
         stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -327,26 +276,30 @@ class Weight_Optimization():
         stats.register("min", np.min)
         stats.register("max", np.max)
 
-        pop, log = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=5000, 
+        pop, log = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=50, 
                                     stats=stats, halloffame=hof, verbose=True)
         
         print("Best individual is: ", hof[0], "with fitness: ", hof[0].fitness)
+        
+        
+
+
     
     def particle_swarm_optimization_method(self, n_features ):
         
             half_point = n_features // 2
-            lb = np.array([0.0005] * half_point + [0] * (n_features - half_point))
-            ub = np.array([1] * half_point + [2] * (n_features - half_point))
+            lb = np.array([0.0025] * half_point + [0] * (n_features - half_point))
+            ub = np.array([0.011] * half_point + [2] * (n_features - half_point))
             
             kwargs = {
-                'swarmsize': 50,         # Increase the swarm size for better exploration default value = 100
-                'omega': 0.8,             # Increase inertia weight to allow greater velocity default value = 0,5
+                'swarmsize': 250,          # Increase the swarm size for better exploration default value = 100
+                'omega': 1.2,               # Increase inertia weight to allow greater velocity default value = 0,5
                 'phip': 0.6,              # Increase cognitive coefficient default value = 0.5
-                'phig': 1.0,              # Increase social coefficient default value = 0.5
-                'maxiter': 1000,          # Maximum number of iterations default value = 100
+                'phig': 1,              # Increase social coefficient default value = 0.5
+                'maxiter': 100,          # Maximum number of iterations default value = 100
                 'debug': True,            # Enable debugging to track process default value = True
                 'minstep': 1e-4,          # Set a smaller step size for termination to allow finer exploration default value = 1e-8
-                'minfunc': 1,          # Minimum change in function value for termination default value = 1e-8
+                'minfunc': 1-1,           # Minimum change in function value for termination default value = 1e-8
             }
             
 
@@ -406,14 +359,14 @@ class Weight_Optimization():
         num_increasing_samples = int(0.15 * numberOfSamples)
         num_random_samples = numberOfSamples - num_increasing_samples
         
-        first_half_random = np.random.uniform(low=0.001, high=0.01, size=(mat_size, num_random_samples))
+        first_half_random = np.random.uniform(low=0.0005, high=0.018, size=(mat_size, num_random_samples))
 
         
         second_half_random = np.random.choice([0, 1, 2], size=(mat_size, num_random_samples))
         
             # Generate increasing samples (15%)
         step_size = (0.01 - 0.001) / num_increasing_samples
-        first_half_increasing = np.tile(np.arange(0.0005, 1, step_size)[:num_increasing_samples], (mat_size, 1))
+        first_half_increasing = np.tile(np.arange(0.0005, 0.018, step_size)[:num_increasing_samples], (mat_size, 1))
         second_half_increasing = np.tile(np.arange(0, num_increasing_samples) % 3, (mat_size, 1))
 
         # Combine the two parts
@@ -505,7 +458,7 @@ class Weight_Optimization():
         
         for row in self.material_data_base:
             if row[0] == material_name:
-                return row[1]
+                return row[2]
         raise ValueError(f"Material '{material_name}' not found in database.")
     
     
@@ -547,7 +500,7 @@ class Weight_Optimization():
         surface_areas = opt_vars[:num_elements]  # First half is surface areas
         material_ids = opt_vars[num_elements:]  # Second half is material IDs
         
-        updated_elementMatrix = elementMatrix.copy() # ElementMatrix should be a list or a type that supports .copy
+        updated_elementMatrix = self.manual_deep_copy_element_matrix(elementMatrix) # ElementMatrix should be a list or a type that supports .copy
 
         for i, element in enumerate(updated_elementMatrix):
             # Update surface area
@@ -609,77 +562,35 @@ class Weight_Optimization():
         # Convert the list of attribute values into a NumPy array
         return attribute_values_array
     
-        
-    def discrete_constraints(self,opt_vars):
-        '''
-        This constraint is added to avoid using integer variables in our solver. 
-        By implementing the following equation and equating it with zero
-        the constraint must be satisfied. If the constraint is satisfied then we have predermined values for our materials
-        '''
-        # elementMatrix = self.preprocessor.elementMatrix
-        # num_vars = len(opt_vars) // 2 
-        
-        # material_ids = opt_vars[num_vars:]
-        
-        # Z_element = np.zeros([num_vars,1 ])
-        # for index, id in enumerate(material_ids):
-            
-        #     material_id = id
-        #     P = 1
-        #     for im in range(len(self.material_data_base)):
-                
-        #         P = P * (material_id - self.material_data_base[im][1])
-            
-        #     Z_element[index] = P 
-        # Z_surfaces = np.zeros([num_vars])    
-        
-        # combined_vector = np.concatenate((Z_surfaces, Z_element.flatten()))
-        # print('discrete')
-        # return combined_vector
-        
-        elementMatrix = self.preprocessor.elementMatrix
-        num_vars = len(opt_vars) // 2 
-        
-        material_ids = opt_vars[num_vars:]
-        
-   
-        Z_element = np.zeros([num_vars,1 ])
-        for index, id in enumerate(material_ids):
-            
-            material = self.get_material_by_id(id)
-
-            Mulitplier = 1
-            Summation = 0
-            for im in range(len(self.material_data_base)):
-                
-                
-                     
-                a = vars(material)
-                b = vars(self.material_data_base[im][2])
-                    
-                if a == b:
-                    Summation = 0 
-                else: 
-                    Summation = 100
-
-                
-                Mulitplier = Mulitplier * (Summation)
-            
-            Z_element[index] = Mulitplier 
-        Z_surfaces = np.zeros([num_vars])    
-        
-        combined_vector = np.concatenate((Z_surfaces, Z_element.flatten()))
-        
-        return Z_element.flatten()
     
-  
-        print(f"Current best solution: {intermediate_result.x}")
-        print(f"Objective function value: {intermediate_result.fun}")
+    def manual_deep_copy_element_matrix(self, elementMatrix):
+        
+        new_matrix = []
+        for element in elementMatrix:
+            # Assuming each element is a list [start_node, end_node, material, surface, other_info...]
+            # Deep copy each component as necessary
+            new_element = [
+                copy.deepcopy(element[0]),  # deep copy if it's a custom object or if needed
+                copy.deepcopy(element[1]),
+                element[2],  # Assume material object needs proper handling
+                copy.deepcopy(element[3]),  # Assuming this is a scalar like a float or int, no need to deep copy
+                element[4],
+                element[5]
+            ]
+            new_matrix.append(new_element)
+        return new_matrix
+    
+    def custom_mutation(self, individual, indpb, allowed_values):
+        for i in range(len(individual)):
+            if random.random() < indpb:
+                individual[i] = random.choice(allowed_values)
+        return individual,
+    
+    
     
 def main():   
     a = Weight_Optimization()
-    # a.run_optimization()
-    a.run_optimization_ML()
+    a.run_optimization()
     
 if __name__ == "__main__":
     main()
