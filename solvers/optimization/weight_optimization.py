@@ -59,15 +59,15 @@ class Weight_Optimization():
         self.preprocessor = self.initial_preprocessor
         self.solver = self.initial_solver
         self.initial_postprocessor = self.initial_postprocessor
-        self.surface_factor = 0.1 
+        self.surface_factor = 1
         self.results = None 
 
         
         # For now We set as allowbable Stress the static values for all elements = Aluminium
         SS = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
-                                                                       'sx')
+                                                                       'ex')
         
-        self.allowableStress = SS*(40/4)
+        self.allowableStress = SS*(4/4)
         self.stress_factor = 1 # max(np.abs(self.allowableStress))
         self.allowableStress = self.allowableStress/self.stress_factor
 
@@ -87,8 +87,25 @@ class Weight_Optimization():
         #Calc total_weight which should be the output of the objective function
         total_weight = self.calculate_total_weight(updated_elementMatrix)
         
-        # print(total_weight)
         
+        
+        
+        if self.optimization_algorithm == 'genetic':  
+            c = self.stress_constraint(opt_vars)     
+            if any(ci <= 0 for ci in c):
+                    penalty = 1e4
+                    
+                    total_weight = total_weight + penalty
+                
+            else:
+                    penalty = 0
+                
+            total_weight = (total_weight,)    
+                
+        
+        
+        print(f'total_weight = {total_weight}')  
+            
         return total_weight
 
     # Constraint Functions
@@ -113,9 +130,9 @@ class Weight_Optimization():
         stress = self.extract_structural_attribute_array(structuralProperties, 
                                                                        'sx')
       
-        print(np.min((np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor)  ) )      
+        # print(np.min((np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor)  ) )     
         
-        stress_diff = np.abs(self.allowableStress) - np.abs(stress)/self.stress_factor     
+        stress_diff = self.allowableStress - stress/self.stress_factor     
         
         if self.optimization_algorithm == 'pso':
             c =    min(stress_diff)
@@ -124,7 +141,7 @@ class Weight_Optimization():
             
             c =      stress_diff                                      
         
-        
+        print(c)
         return c
 
 
@@ -186,7 +203,7 @@ class Weight_Optimization():
         
         
         gekkoObj = GEKKO()
-        numberOfSamples= 70000
+        numberOfSamples= 75000
         
         filename = f'dataset_sampleNumber_{numberOfSamples}.csv'
         file_path = os.path.join(os.getcwd()+ '\datasets', filename)
@@ -250,7 +267,7 @@ class Weight_Optimization():
             self.surrogated_model = model 
             # y_pred = model.predict(X_test)
             
-            # # Scatter plot of actual vs. predicted values
+            # Scatter plot of actual vs. predicted values
             # plt.scatter(y_test, y_pred, alpha=0.5)
 
             # # Line for perfect predictions
@@ -283,7 +300,7 @@ class Weight_Optimization():
         
         
         # Attribute generators
-        toolbox.register("attr_float", random.uniform, 0.05,3)  # For continuous features (0.001, 0.01)
+        toolbox.register("attr_float", random.uniform, 0.0005,0.1)  # For continuous features (0.001, 0.01)
         toolbox.register("attr_int", random.choice, [0, 1, 2])  # For discrete features
 
         
@@ -292,14 +309,15 @@ class Weight_Optimization():
                         lambda: [toolbox.attr_float() for _ in range(HALF_FEATURES)] +
                                 [toolbox.attr_int() for _ in range(HALF_FEATURES)])
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-
+        toolbox.register("select", tools.selStochasticUniversalSampling)
         
         # Register genetic operators
         toolbox.register("mate", tools.cxTwoPoint)
-        toolbox.register("mutate", tools.mutUniformInt, low=0, up=2, indpb=0.05)
+        toolbox.register("mutate", tools.mutUniformInt, low=0, up=2, indpb=0.2) # indpb is controlling the search space. Higher values higher steps
         toolbox.register("select", tools.selTournament, tournsize=3)
-        toolbox.register("evaluate", self.surrogated_model_objective_function)
-        
+        # toolbox.register("evaluate", self.surrogated_model_objective_function)
+        toolbox.register("evaluate", self.objective_function)
+       
         
         pop = toolbox.population(n=50)
         hof = tools.HallOfFame(1)  # Only the best individual kept
@@ -309,7 +327,7 @@ class Weight_Optimization():
         stats.register("min", np.min)
         stats.register("max", np.max)
 
-        pop, log = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=50, 
+        pop, log = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=5000, 
                                     stats=stats, halloffame=hof, verbose=True)
         
         print("Best individual is: ", hof[0], "with fitness: ", hof[0].fitness)
@@ -317,13 +335,25 @@ class Weight_Optimization():
     def particle_swarm_optimization_method(self, n_features ):
         
             half_point = n_features // 2
-            lb = np.array([0.001] * half_point + [0] * (n_features - half_point))
-            ub = np.array([2] * half_point + [2] * (n_features - half_point))
+            lb = np.array([0.0005] * half_point + [0] * (n_features - half_point))
+            ub = np.array([1] * half_point + [2] * (n_features - half_point))
             
-            xopt, fopt = pso(self.surrogated_model_objective_function, lb,
-                             ub, f_ieqcons = self.stress_constraint , maxiter=1000, 
-                             debug=True)
+            kwargs = {
+                'swarmsize': 50,         # Increase the swarm size for better exploration default value = 100
+                'omega': 0.8,             # Increase inertia weight to allow greater velocity default value = 0,5
+                'phip': 0.6,              # Increase cognitive coefficient default value = 0.5
+                'phig': 1.0,              # Increase social coefficient default value = 0.5
+                'maxiter': 1000,          # Maximum number of iterations default value = 100
+                'debug': True,            # Enable debugging to track process default value = True
+                'minstep': 1e-4,          # Set a smaller step size for termination to allow finer exploration default value = 1e-8
+                'minfunc': 1,          # Minimum change in function value for termination default value = 1e-8
+            }
             
+
+            # xopt, fopt = pso(self.surrogated_model_objective_function, lb, ub, f_ieqcons=self.stress_constraint, **kwargs)
+            
+            xopt, fopt = pso(self.objective_function, lb, ub, f_ieqcons=self.stress_constraint, **kwargs)
+
             print("Optimal solution:", xopt)
             print("Optimal objective value:", fopt)
             
@@ -383,7 +413,7 @@ class Weight_Optimization():
         
             # Generate increasing samples (15%)
         step_size = (0.01 - 0.001) / num_increasing_samples
-        first_half_increasing = np.tile(np.arange(0.001, 0.01, step_size)[:num_increasing_samples], (mat_size, 1))
+        first_half_increasing = np.tile(np.arange(0.0005, 1, step_size)[:num_increasing_samples], (mat_size, 1))
         second_half_increasing = np.tile(np.arange(0, num_increasing_samples) % 3, (mat_size, 1))
 
         # Combine the two parts
@@ -391,6 +421,7 @@ class Weight_Optimization():
         second_half = np.hstack((second_half_random, second_half_increasing))
 
         self.surface_factor = np.max(first_half)
+        self.surface_factor = 1 # Remove normalization
         first_half = first_half/self.surface_factor 
         
         indices = np.random.permutation(numberOfSamples)
