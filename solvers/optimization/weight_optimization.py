@@ -38,7 +38,8 @@ class Weight_Optimization():
     def __init__(self, solverType = 'genetic', 
                  preprocessorObj = None, solverObj = None, postprocessorObj = None, 
                 optimize_with_surrogate_ML_model = True, 
-                discrete_surface_values = [0.0001, 0.0008, 0.0031, 0.008, 0.015]): #[0.0013, 0.0025, 0.0031, 0.0041, 0.0071, 0.0091, 0.011, 0.013]):
+                discrete_surface_values = [0.0001, 0.0008, 0.0031, 0.008, 0.015], 
+                numberOfSamples = 30000): 
                                         
         # Import material database
         # In order to add in our current model more materials in the database, we need to parametrize some 
@@ -79,8 +80,8 @@ class Weight_Optimization():
         self.surrogated_model = None 
         self.optimization_algorithm = solverType
         self.optimize_with_surrogate_ML_model = optimize_with_surrogate_ML_model
-        
-        self.penalty = 0
+
+        self.numberOfSamples = numberOfSamples
 
     # Objective Function
     def objective_function(self,opt_vars):
@@ -176,7 +177,7 @@ class Weight_Optimization():
         if self.optimize_with_surrogate_ML_model == True:
            
 
-            numberOfSamples= 65 # 30000 might be better to avoid overfitting
+            numberOfSamples= self.numberOfSamples # 30000 might be better to avoid overfitting
             
             filename = f'dataset_sampleNumber_{numberOfSamples}.csv'
             file_path = os.path.join(os.getcwd(), 'datasets', filename)

@@ -11,15 +11,17 @@ from solvers.optimization.weight_optimization import Weight_Optimization
 class OptimizationThread(QThread):
     
     finished_signal = pyqtSignal(str)
-    def __init__(self, opt_with_ml, surface_values):
+    def __init__(self, opt_with_ml, surface_values, numberOfSamples):
         super().__init__()
         self.opt_with_ml = opt_with_ml
         self.surface_values = surface_values
+        self.numberOfSamples = numberOfSamples
 
     def run(self):
         try:
             opt = Weight_Optimization(optimize_with_surrogate_ML_model=self.opt_with_ml, 
-                                      discrete_surface_values=self.surface_values)
+                                      discrete_surface_values=self.surface_values, 
+                                      numberOfSamples = self.numberOfSamples)
             opt.run_optimization()
             self.finished_signal.emit("Optimization completed successfully.")  # Emit success message
         except Exception as e:
@@ -48,7 +50,8 @@ class MainWindow(QMainWindow):
 
         # Create input fields
         self.discrete_surface_values = QLineEdit()
-
+        self.numberOfSamples = QLineEdit()
+        
         self.submit_button = QPushButton("Run Optimization")
         self.submit_button.clicked.connect(self.run_simulation)
         
@@ -57,19 +60,25 @@ class MainWindow(QMainWindow):
         # Add inputs to parameters layout
         self.parameters_layout.addWidget(QLabel("Discrete Surface Values"))
         self.parameters_layout.addWidget(self.discrete_surface_values)
-        self.parameters_layout.addWidget(self.submit_button)
         
+        
+        self.numberOfSamples.setText("30000")
+        self.parameters_layout.addWidget(QLabel("Number of Samples in the Dataset or Neural Network"))
+        self.parameters_layout.addWidget(self.numberOfSamples)
+
+        self.parameters_layout.addWidget(self.submit_button)
         self.setup_choice_buttons()
     
     def run_simulation(self):
         
         surface_values_text   = self.discrete_surface_values.text()  
-        
+        numberOfSamples_text = self.numberOfSamples.text()
         try:
             
             surface_values = [float(val.strip()) for val in surface_values_text.strip('[]').split(',')]
+            numberOfSamples = int(numberOfSamples_text) 
             opt_with_ml = self.ML_model_optimization.isChecked()
-            self.thread = OptimizationThread(opt_with_ml, surface_values)  # Store as an instance variable.
+            self.thread = OptimizationThread(opt_with_ml, surface_values, numberOfSamples)  # Store as an instance variable.
             self.thread.finished_signal.connect(self.optimization_finished)
             self.thread.start()
             
