@@ -1,6 +1,14 @@
 
 import sys
 import os
+
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = 'utf-8'
+
+if not sys.stdout.encoding == 'UTF-8':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8'
+                                  , errors='replace')
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 
@@ -29,16 +37,16 @@ class Weight_Optimization():
     
     def __init__(self, solverType = 'genetic', 
                  preprocessorObj = None, solverObj = None, postprocessorObj = None, 
-                optimize_with_surrogate_ML_model = False, 
-                discrete_surface_values = [0.0025, 0.0031, 0.0041, 0.0071, 0.0091, 0.011, 0.0013]):
-        
+                optimize_with_surrogate_ML_model = True, 
+                discrete_surface_values = [0.0001, 0.0008, 0.0031, 0.008, 0.015]): #[0.0013, 0.0025, 0.0031, 0.0041, 0.0071, 0.0091, 0.011, 0.013]):
+                                        
         # Import material database
         # In order to add in our current model more materials in the database, we need to parametrize some 
         # parts of this class because the material_ids selection [0, 1, 2] are hardcoded at the moment.
         self.material_data_base = generate_material_np_matrix()
         
        # Set Wing Objects from structural dynamics model
-        material = self.get_material('Steel')
+        material = self.get_material('CFRP')
         if preprocessorObj == None :
             self.initial_preprocessor = Preprocessor(elementMaterial = material)
         else:
@@ -59,16 +67,20 @@ class Weight_Optimization():
         V_static_for_initial_Wing = self.extract_structural_attribute_array(self.initial_solver.static_structural_properties, 
                                                                        'sx')
         
-        self.allowableStress = V_static_for_initial_Wing*(3/4) # (3/4) is arbitary
+        self.allowableStress = V_static_for_initial_Wing*(5/8) # (3/4) is arbitary
         self.stress_factor = max(np.abs(self.allowableStress)) # Factor for normalization
         self.allowableStress = self.allowableStress/self.stress_factor
 
         self.discrete_surface_values = discrete_surface_values
+        self.discrete_material_ids = [0 , 1 , 2]
+        
         self.surface_factor = 1 # Surface factor for normalization current = 1 which means we don't use it 
         self.results = None 
         self.surrogated_model = None 
         self.optimization_algorithm = solverType
         self.optimize_with_surrogate_ML_model = optimize_with_surrogate_ML_model
+        
+        self.penalty = 0
 
     # Objective Function
     def objective_function(self,opt_vars):
@@ -93,14 +105,16 @@ class Weight_Optimization():
         if self.optimization_algorithm == 'genetic':  
             c = self.stress_constraint(opt_vars)     
             if any(ci < 0 for ci in c):
-                
-                    penalty = 1e4 * np.abs(min(c))
+
+                    cc = np.abs(min(c))
+                    penalty = 1e4 *cc # (150*cc)**2
                     
                     total_weight = weight + penalty
 
             else:
                     penalty = 0
-                
+                    total_weight = weight
+                    
             total_weight = (total_weight,)   
             
             print(f'Real Weight = {weight} || Weight with Penalty = {total_weight} || Constraint Minumum = {min(c)} || Penalty Value = {penalty}') 
@@ -150,31 +164,31 @@ class Weight_Optimization():
 
         return stress_diff
 
-
     # Main Optimization Function
     def run_optimization(self):
-
+        
+        
         """
             In this function we Generate Data for ML training, we Train the Neural Network,
             and after that we run the optimization using the surrogated machine learning model. 
         """
         # Statement in case we want to run with ML surrogated model or we want to run with original Objective Function
         if self.optimize_with_surrogate_ML_model == True:
-            
-            numberOfSamples= 30000 # 35000 might be better to avoid overfitting
+           
+
+            numberOfSamples= 65 # 30000 might be better to avoid overfitting
             
             filename = f'dataset_sampleNumber_{numberOfSamples}.csv'
-            file_path = os.path.join(os.getcwd()+ '\datasets', filename)
+            file_path = os.path.join(os.getcwd(), 'datasets', filename)
 
                 # Check if the file exists
-            if os.path.exists(file_path):
+            if os.path.exists(file_path, ):
                 
-                data = pd.read_csv(file_path)
+                data = pd.read_csv(file_path, encoding='utf-8')
             else:
                 data = self.generate_data(numberOfSamples = numberOfSamples, 
                                     file_path = file_path)
 
-            label = ['y']
             
             ML_model = 'Neural_Network'
             model_path = os.path.join(os.getcwd(), 'ML_models', f'{ML_model}_{numberOfSamples}.keras')
@@ -192,7 +206,6 @@ class Weight_Optimization():
                 
                 if os.path.exists(model_path):
                     model = keras.models.load_model(model_path)
-                    
                     model.compile(optimizer = 'adam', 
                             loss = 'mean_squared_error',
                             metrics = ['mean_absolute_error']
@@ -223,7 +236,7 @@ class Weight_Optimization():
                 self.surrogated_model = model 
  
         ## Run optimization   
-        num_of_vars = 2 * len(self.preprocessor.elementMatrix)         
+        num_of_vars = 2 * len(self.preprocessor.elementMatrix)     
         if self.optimization_algorithm == 'pso' : 
 
             self.particle_swarm_optimization_method(num_of_vars)
@@ -251,24 +264,24 @@ class Weight_Optimization():
 
         
         # Attribute generators
-        toolbox.register("attr_surfaces", random.choice, self.discrete_surface_values)  # For continuous features (0.001, 0.01)
-
-        toolbox.register("attr_int", random.choice, [0, 1 ,2])  # For discrete features
+        
+        toolbox.register("attr_surfaces", random.choice, self.discrete_surface_values)  # For discrete features
+        
+        toolbox.register("attr_material", random.choice, self.discrete_material_ids)  # For discrete features
 
         
         # Structure initializers        
         toolbox.register("individual", tools.initIterate, creator.Individual,
                         lambda: [toolbox.attr_surfaces() for _ in range(HALF_FEATURES)] +
-                                [toolbox.attr_int() for _ in range(HALF_FEATURES)])
+                                [toolbox.attr_material() for _ in range(HALF_FEATURES)])
         
         
         # Register genetic operators
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
         toolbox.register("mate", tools.cxUniform, indpb=0.7)  # Uniform crossover
-        toolbox.register("mutate", self.custom_mutation, indpb = 1, allowed_values=self.discrete_surface_values)
         
+        toolbox.register("mutate", self.custom_mutation, indpb=1)
         toolbox.register("select", tools.selTournament, tournsize=5)
-        
         
         
        
@@ -285,7 +298,7 @@ class Weight_Optimization():
         stats.register("avg", np.mean)
         stats.register("min", np.min)
         stats.register("max", np.max)
-
+        
         pop, log = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=50, 
                                     stats=stats, halloffame=hof, verbose=True)
         
@@ -309,7 +322,7 @@ class Weight_Optimization():
                 "min_fitness": log.select("min"),
                 "max_fitness": log.select("max")
             },
-            "logbook": logbook
+            "logbook": log
         }
 
     
@@ -357,30 +370,29 @@ class Weight_Optimization():
             x_discrete[271:] = np.clip(np.round(x_discrete[271:]), 0, 2)
     
             weight = self.surrogated_model.predict([np.array([x_discrete])])
-            objValue = weight
+            
+            print(weight)
             
         elif self.optimization_algorithm == 'genetic':
             
             c = self.stress_constraint(x)
+            weight = self.surrogated_model.predict([np.array([x])])  
             
-            if any(ci <= 0 for ci in c):
-                penalty = 1e4
+            if any(ci < 0 for ci in c):
+                penalty = 1e4 * np.abs(min(c))
+                
+                total_weight = weight + penalty
             else:
                 penalty = 0
-                print(penalty)
                 
-            weight = self.surrogated_model.predict([np.array([x])])    
-            objValue = weight+ penalty
-        
-        
-        print(weight)
+                total_weight = weight
+                
+            total_weight = (total_weight,)   
+                
             
-        
-    
-        
-        
-        
-        return objValue
+            print(f'Real Weight = {weight} || Weight with Penalty = {total_weight} || Constraint Minumum = {min(c)} || Penalty Value = {penalty}') 
+
+        return total_weight
     
          
     def generate_data(self, numberOfSamples, file_path):
@@ -396,14 +408,16 @@ class Weight_Optimization():
         num_increasing_samples = int(0.15 * numberOfSamples)
         num_random_samples = numberOfSamples - num_increasing_samples
         
-        first_half_random = np.random.uniform(low=0.0005, high=0.018, size=(mat_size, num_random_samples))
+        # first_half_random = np.random.uniform(low=0.0005, high=0.018, size=(mat_size, num_random_samples))
 
+        first_half_random = np.random.choice(self.discrete_surface_values, size=(mat_size, num_random_samples))
+        second_half_random = np.random.choice(self.discrete_material_ids, size=(mat_size, num_random_samples))
         
-        second_half_random = np.random.choice([0, 1, 2], size=(mat_size, num_random_samples))
+        num_discrete_values = len(self.discrete_surface_values)
+        indices = np.arange(num_increasing_samples) % num_discrete_values
+        surface_values_to_use = np.array(self.discrete_surface_values)[indices]
         
-        # Generate increasing samples (15%)
-        step_size = (0.01 - 0.001) / num_increasing_samples
-        first_half_increasing = np.tile(np.arange(0.0005, 0.018, step_size)[:num_increasing_samples], (mat_size, 1))
+        first_half_increasing = np.tile(surface_values_to_use, (mat_size, 1))
         second_half_increasing = np.tile(np.arange(0, num_increasing_samples) % 3, (mat_size, 1))
 
         # Combine the two parts
@@ -442,8 +456,8 @@ class Weight_Optimization():
         data = pd.DataFrame(data_array, columns=features + ['y'])
         
         # Export dataset
-        current_directory = os.getcwd()
-        data.to_csv(file_path, index=False)
+        # current_directory = os.getcwd()
+        data.to_csv(file_path, index=False, encoding='utf-8')
         return data
         
         
@@ -601,10 +615,18 @@ class Weight_Optimization():
             new_matrix.append(new_element)
         return new_matrix
     
-    def custom_mutation(self, individual, indpb, allowed_values):
-        for i in range(len(individual)):
+    def custom_mutation(self, individual, indpb):
+        # Apply mutation for surface values
+        half_features = len(individual) // 2
+        for i in range(half_features):  # Mutate first half with surface values
             if random.random() < indpb:
-                individual[i] = random.choice(allowed_values)
+                individual[i] = random.choice(self.discrete_surface_values)
+
+        # Apply mutation for material IDs
+        for i in range(half_features, len(individual)):  # Mutate second half with material IDs
+            if random.random() < indpb:
+                individual[i] = random.choice(self.discrete_material_ids)
+
         return individual,
     
     
@@ -612,6 +634,7 @@ class Weight_Optimization():
 def main():   
     a = Weight_Optimization()
     a.run_optimization()
+    b = 2
     
 if __name__ == "__main__":
     main()

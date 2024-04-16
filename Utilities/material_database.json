@@ -1,23 +1,26 @@
 {
-    "Aluminum": {
+
+    "Aluminum_Alloy_7075": {
         "id": 0,
-        "elasticModulus": 69000000000,
-        "poissonRatio": 0.35,
-        "density": 2700,
-        "shearModulus": 25500000000
+        "elasticModulus": 71000000000,
+        "poissonRatio": 0.33,
+        "density": 2810,
+        "shearModulus": 26000000000
     },
-    "Steel": {
+
+    "CFRP": {
         "id": 1,
-        "elasticModulus": 200000000000,
-        "poissonRatio": 0.3,
-        "density": 7850,
-        "shearModulus": 77000000000
+        "elasticModulus": 90000000000,
+        "poissonRatio": 0.25,
+        "density": 1550,
+        "shearModulus": 7000000000
     },
-    "Titanium": {
+
+    "Titanium_Alloy": {
         "id": 2,
-        "elasticModulus": 116000000000,
-        "poissonRatio": 0.34,
-        "density": 4500,
-        "shearModulus": 42000000000
+        "elasticModulus": 113800000000,
+        "poissonRatio": 0.342,
+        "density": 4430,
+        "shearModulus": 44000000000
     }
 }
