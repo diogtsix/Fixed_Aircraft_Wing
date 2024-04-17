@@ -1,7 +1,10 @@
 import sys
+import os
+
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
 from solvers.structural_dynamics.StructuralDynamics_main import MainWindow as StructuralDynamics
-
+from solvers.optimization.optimization_GUI import MainWindow as StructuralOptimization
 
 class MainWindow(QMainWindow):
     
@@ -37,7 +40,9 @@ class MainWindow(QMainWindow):
         self.structural_dynamics_window.show()
 
     def run_optimization(self):
-        pass
+        
+        self.structural_optimization_window = StructuralOptimization()
+        self.structural_optimization_window.show()
 
 def main():
     app = QApplication(sys.argv)

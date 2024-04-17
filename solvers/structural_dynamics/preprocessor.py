@@ -6,7 +6,7 @@ from dataobjects.node import Node
 class Preprocessor():
     
     def __init__(self, chordLength = 1.12, wing_length = 3.61, 
-                 elementMaterial = Material, elementSurface = 0.0031, 
+                 elementMaterial = None , elementSurface = 0.0031, 
                  numberOfAirfoils = 11, forceValue = 0.5*1e3):
         
         self.chordLength = chordLength
@@ -18,7 +18,10 @@ class Preprocessor():
         self.dofsToDelete = self.boundaryConditions()
 
         
-        self.elementMaterial = Material()
+        if elementMaterial is None:
+            self.elementMaterial = Material()  # Assume Material() creates a default material
+        else:
+            self.elementMaterial = elementMaterial
         
         nodes_airfoil, elements_airfoil = naca2D(chordLength, plotAirfoil = False)
         

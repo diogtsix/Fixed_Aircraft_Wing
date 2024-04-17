@@ -1,9 +1,9 @@
 class Material(): 
     
-    def __init__(self, id: int = 0 , elasticModulus: float = 69*1e9, poissonRatio: float = 0.35,
-                 density: float = 2700, 
-                 shearModulus: float = 25.5*1e9, 
-                 name :str =  "Aluminum"):
+    def __init__(self, id: int = 1 , elasticModulus: float = 200*1e9, poissonRatio: float = 0.3,
+                 density: float = 7850, 
+                 shearModulus: float = 77*1e9, 
+                 name :str =  "Steel"):
         
         """
         Initialize a new Material instance with physical properties.
