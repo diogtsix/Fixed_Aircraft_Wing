@@ -2,7 +2,7 @@
 import sys
 import os
 
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = 'utf-8'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 if not sys.stdout.encoding == 'UTF-8':
     import io
@@ -82,6 +82,8 @@ class Weight_Optimization():
         self.optimize_with_surrogate_ML_model = optimize_with_surrogate_ML_model
 
         self.numberOfSamples = numberOfSamples
+        
+        self.optimal_elementMatrix = None 
 
     # Objective Function
     def objective_function(self,opt_vars):
@@ -310,22 +312,23 @@ class Weight_Optimization():
         best_individual = hof.items[0]
         logbook = log
         
-        #Store Results
-        self.results = {
-            "final_population": final_population,   
-            "best_individual": {
-                "genotype": list(best_individual),
-                "fitness": best_individual.fitness.values
-            },
-            "statistics": {
-                "generations": log.select("gen"),
-                "average_fitness": log.select("avg"),
-                "min_fitness": log.select("min"),
-                "max_fitness": log.select("max")
-            },
-            "logbook": log
-        }
+        best_surfaces = best_individual[:HALF_FEATURES]
+        best_material =  best_individual[HALF_FEATURES:]
 
+        optimization_method_description = "Surrogated Neural Network Optimization" if self.optimize_with_surrogate_ML_model else "Objective Function Optimization"
+
+        self.results = {
+            "Optimization Method": optimization_method_description,
+            "Optimized Surfaces [m2]": ', '.join(map(str, best_surfaces)),
+            "Optimized material ids": ', '.join(map(str, best_material)),
+            "Optimal Weight [kg]]": str(best_individual.fitness.values),
+            "Total Generations": str(log.select("gen")[-1]),
+            }
+
+        elementMatrix = self.initial_preprocessor.elementMatrix
+        
+        #Update the elementMatrix based on the opt_vars
+        self.optimal_elementMatrix = self.replace_optimized_vars_to_elementMatrix(best_individual, elementMatrix)
     
     def particle_swarm_optimization_method(self, n_features ):
             """
