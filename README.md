@@ -65,6 +65,8 @@ Also, fundamental structure components such as, nodes, elements etc, are impleme
 
 Mathematical Methods (Newmark, eigenAnalyis) are located inside the utilities folder. 
 
+There is also a unitTests folder where we implement unit tests for proper component functioning. (At the moment, only for the preprocessor).
+
 ## **Structural Optimization**
 
 ## Modelling and Solving
