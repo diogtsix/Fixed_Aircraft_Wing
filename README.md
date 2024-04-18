@@ -1,6 +1,6 @@
 # **Fixed_Aircraft_Wing**
 
-## Introduction 
+## Overview 
 
 This project focuses on Solving, Modelling and Simulating the Structural Dynamics and the Structural Optimization of a Fixed aircraft's Wing. It aims to the design of a full software architecture and the implementation of advanced engineering methods for real structures. All the project have been developed in Python with OOP. 
 
@@ -37,7 +37,7 @@ The project consist 2 distinct components and the interaction between those two 
 - Python
 
 
-## **Structural Dynamics**
+## **Structural Dynamics--------------**
 
 ## Modelling and Solving
 
@@ -65,7 +65,7 @@ Also, fundamental structure components such as, nodes, elements etc, are impleme
 
 Mathematical Methods (Newmark, eigenAnalyis) are located inside the utilities folder. 
 
-## **Structural Optimization**
+## **Structural Optimization--------------**
 
 ## Modelling and Solving
 
