@@ -2,12 +2,12 @@
 
 ## Overview 
 
-This project focuses on Solving, Modelling and Simulating the Structural Dynamics and the Structural Optimization of a Fixed aircraft's Wing. It aims to the design of a full software architecture and the implementation of advanced engineering methods for real structures. All the project have been developed in Python with OOP. 
+This project focuses on **Solving**, **Modelling** and **Simulating** the Structural Dynamics and the Structural Optimization of a Fixed aircraft's Wing. It aims to the design of a full software architecture and the implementation of advanced engineering methods for real structures. All the project have been developed in Python with OOP. 
 
 The project consist 2 distinct components and the interaction between those two : 
 
-1) Structural Dynamics 
-2) Structural Optimization
+1) **Structural Dynamics**
+2) **Structural Optimization**
 
 ## **Keywords**
 
@@ -41,7 +41,7 @@ The project consist 2 distinct components and the interaction between those two 
 
 ## Modelling and Solving
 
-Using real dimensions for NACA airfoil, we model the structure using 3D bars and beams. Material, number of airfoils, wing length etc, are all parametrized for user input. In the next step we derive our **dynamic equations** using Finite Element Method (FEM). To solve these equations we have implement 2 different methds, we can solve either with Newmark method (numerical method for differential equations) or with eigenfrequency-eigenmode analysis (analytical solution). After calculating the displacements on each node, we calcualte strain and stresses for our structure. 
+Using real dimensions for NACA airfoil, we model the structure using 3D bars and beams. Material, number of airfoils, wing length etc, are all parametrized for user input. In the next step we derive our **dynamic equations** using Finite Element Method (FEM). To solve these equations we have implement 2 different methds, we can solve either with **Newmark method** (numerical method for differential equations) or with **eigenfrequency-eigenmode analysis** (analytical solution). After calculating the displacements on each node, we calcualte strain and stresses for our structure. 
 
 Regarding the loading of the structure we implemented harmonic loading in the form : F = F0 sin(Ωt) with Ω = 115.28 Hz. The magnitude of this harmonic excitation is parametrized and can be changed. 
 
@@ -78,9 +78,9 @@ Currently the constraints are based on the structure's stresses. For the optimiz
 1) Objective Function constrained minimization
 2) Surrogate Neural Network Model constrained minimization
 
-We use Genetic Algorithm optimization for both the above models (also Particle Swarm Optimization will be completed soon), and we calcualte the best fit (optimal values for our vars) for our model. The implementation of GA have been conducted through DEAP library. 
+We use **Genetic Algorithm** optimization for both the above models (also Particle Swarm Optimization will be completed soon), and we calcualte the best fit (optimal values for our vars) for our model. The implementation of GA have been conducted through DEAP library. 
 
-For the Surrogate Model, we trained based on generated dataset a neural network, which in latter steps is used as an objective function for our model. 
+For the Surrogate Model, we trained based on generated dataset a **Neural Network**, which in latter steps is used as an objective function for our model. 
 
 ## Program Components
 
@@ -105,7 +105,7 @@ In general the above reports can guide you through the whole engineering methods
 
 ## **How To Run The Code**
 
-The running process for this code is fairly simple. You just need to open the main.py file, which is located on the higher level for the project, and run it. This file will guide you through the steps. 
+The running process for this code is fairly simple. You just need to open the **main.py** file, which is located on the higher level for the project, and run it. This file will guide you through the steps. 
 
 A window will appear firstly asking which problem you want to run (Structural Dunamics or Optimization), after this step the specific GUI will appear and you are ready to solve it. It is also possible after finishing let's say the structural Optimization, without closing th windows to conduct also a structural dunamics analysis (for real time simulation etc.), or after running on type of model optimization to run also the second one and the report will display both results for comparison
 
@@ -121,4 +121,4 @@ A window will appear firstly asking which problem you want to run (Structural Du
 8) PyQt5 (for GUI design)
 9) scipy (for the FEM model)
 
-8) pyswarm (For Particle Swarm Optimization, but not yet functional)
+10) pyswarm (For Particle Swarm Optimization, but not yet functional)
