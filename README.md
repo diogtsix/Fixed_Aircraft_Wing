@@ -37,7 +37,7 @@ The project consist 2 distinct components and the interaction between those two 
 - Python
 
 
-## **Structural Dynamics--------------**
+## **Structural Dynamics**
 
 ## Modelling and Solving
 
@@ -65,7 +65,7 @@ Also, fundamental structure components such as, nodes, elements etc, are impleme
 
 Mathematical Methods (Newmark, eigenAnalyis) are located inside the utilities folder. 
 
-## **Structural Optimization--------------**
+## **Structural Optimization**
 
 ## Modelling and Solving
 
