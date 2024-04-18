@@ -1,4 +1,3 @@
-
 import sys
 import os
 
@@ -39,7 +38,8 @@ class Weight_Optimization():
                  preprocessorObj = None, solverObj = None, postprocessorObj = None, 
                 optimize_with_surrogate_ML_model = True, 
                 discrete_surface_values = [0.0001, 0.0008, 0.0031, 0.008, 0.015], 
-                numberOfSamples = 30000): 
+                numberOfSamples = 30000, 
+                GA_max_iter = 50, GA_population_size = 100): 
                                         
         # Import material database
         # In order to add in our current model more materials in the database, we need to parametrize some 
@@ -84,6 +84,8 @@ class Weight_Optimization():
         self.numberOfSamples = numberOfSamples
         
         self.optimal_elementMatrix = None 
+        self.GA_maxiter = GA_max_iter
+        self.GA_population_size = GA_population_size
 
     # Objective Function
     def objective_function(self,opt_vars):
@@ -294,7 +296,7 @@ class Weight_Optimization():
             toolbox.register("evaluate", self.objective_function)
                 
         
-        pop = toolbox.population(n=100)
+        pop = toolbox.population(n=self.GA_population_size)
         hof = tools.HallOfFame(1)  # Only the best individual kept
 
         stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -302,7 +304,7 @@ class Weight_Optimization():
         stats.register("min", np.min)
         stats.register("max", np.max)
         
-        pop, log = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=50, 
+        pop, log = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=self.GA_maxiter, 
                                     stats=stats, halloffame=hof, verbose=True)
         
         print("Best individual is: ", hof[0], "with fitness: ", hof[0].fitness)
@@ -317,18 +319,36 @@ class Weight_Optimization():
 
         optimization_method_description = "Surrogated Neural Network Optimization" if self.optimize_with_surrogate_ML_model else "Objective Function Optimization"
 
+         #Update the elementMatrix based on the opt_vars
+        elementMatrix = self.initial_preprocessor.elementMatrix
+        
+        #Update the elementMatrix based on the opt_vars
+        self.optimal_elementMatrix = self.replace_optimized_vars_to_elementMatrix(best_individual, elementMatrix)
+        
+        #Update the preprocessor based on the opt_vars
+        self.preprocessor.elementMatrix = self.optimal_elementMatrix
+        
+        solver = Solver(preprocessor = self.preprocessor)
+        
+        structuralProperties = solver.static_structural_properties
+        
+        stress = self.extract_structural_attribute_array(structuralProperties, 
+                                                                       'sx')
+        
+        max_stress = max(np.abs(self.allowableStress *(8/5)))*self.stress_factor*1e-6
+        max_stress_optimized = max(np.abs(stress))*1e-6
+        
         self.results = {
             "Optimization Method": optimization_method_description,
             "Optimized Surfaces [m2]": ', '.join(map(str, best_surfaces)),
             "Optimized material ids": ', '.join(map(str, best_material)),
             "Optimal Weight [kg]]": str(best_individual.fitness.values),
             "Total Generations": str(log.select("gen")[-1]),
+            "Max Stress [N/m2]" : str(max_stress),
+            "Max Stress Optimized [N/m2]" : str(max_stress_optimized),
             }
 
-        elementMatrix = self.initial_preprocessor.elementMatrix
-        
-        #Update the elementMatrix based on the opt_vars
-        self.optimal_elementMatrix = self.replace_optimized_vars_to_elementMatrix(best_individual, elementMatrix)
+
     
     def particle_swarm_optimization_method(self, n_features ):
             """

@@ -20,14 +20,26 @@ class MainWindow(QMainWindow):
         self.parameters_layout = QVBoxLayout()
         self.main_layout.addLayout(self.parameters_layout, 1)
 
+        # Discrete values for element surfaces
         self.discrete_surface_values = QLineEdit("[0.0001, 0.0008, 0.0031, 0.008, 0.015]")
         self.parameters_layout.addWidget(QLabel("Discrete Surface Values"))
         self.parameters_layout.addWidget(self.discrete_surface_values)
 
+        # Dataset size for training the Neural Network
         self.numberOfSamples = QLineEdit("30000")
         self.parameters_layout.addWidget(QLabel("Number of Samples in the Dataset for Neural Network"))
         self.parameters_layout.addWidget(self.numberOfSamples)
-
+        
+        # Number of Iterations for the GA optimizer
+        self.GA_max_iter = QLineEdit("50")
+        self.parameters_layout.addWidget(QLabel("Max Iterations for Genetic Algorithm Optimization"))
+        self.parameters_layout.addWidget(self.GA_max_iter)
+        
+        # Population Size for Genetic algorithm opitmizer
+        self.GA_population_size = QLineEdit("100")
+        self.parameters_layout.addWidget(QLabel("Population Size for Genetic Algorithm Optimization"))
+        self.parameters_layout.addWidget(self.GA_population_size)
+        
         self.submit_button = QPushButton("Run Optimization")
         self.submit_button.clicked.connect(self.run_simulation)
         self.parameters_layout.addWidget(self.submit_button)
@@ -55,15 +67,23 @@ class MainWindow(QMainWindow):
         self.main_layout.addLayout(self.results_layout, 1)
 
     def run_simulation(self):
+        
         surface_values_text = self.discrete_surface_values.text()
         numberOfSamples_text = self.numberOfSamples.text()
+        GA_max_iter_text = self.GA_max_iter.text()
+        GA_population_size_text = self.GA_population_size.text()
         try:
             surface_values = [float(val.strip()) for val in surface_values_text.strip('[]').split(',')]
             numberOfSamples = int(numberOfSamples_text)
+            GA_max_iter = int(GA_max_iter_text)
+            GA_population_size = int(GA_population_size_text)
+            
             opt_with_ml = self.ML_model_optimization.isChecked()
             opt = Weight_Optimization(optimize_with_surrogate_ML_model=opt_with_ml, 
                                       discrete_surface_values=surface_values, 
-                                      numberOfSamples=numberOfSamples)
+                                      numberOfSamples=numberOfSamples, 
+                                      GA_max_iter = GA_max_iter, 
+                                      GA_population_size = GA_population_size)
             opt.run_optimization()
             self.update_results_table(opt.results)
             print("Optimization completed successfully.")
@@ -107,8 +127,7 @@ class MainWindow(QMainWindow):
         self.results_table.setItem(current_rows, 0, header_item)
         self.results_table.setSpan(current_rows, 0, 1, self.results_table.columnCount())
         
-        
-            
+                 
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()
