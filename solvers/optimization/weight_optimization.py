@@ -344,8 +344,8 @@ class Weight_Optimization():
             "Optimized material ids": ', '.join(map(str, best_material)),
             "Optimal Weight [kg]]": str(best_individual.fitness.values),
             "Total Generations": str(log.select("gen")[-1]),
-            "Max Stress [N/m2]" : str(max_stress),
-            "Max Stress Optimized [N/m2]" : str(max_stress_optimized),
+            "Max Stress [N/mm2]" : str(max_stress),
+            "Max Stress Optimized [N/mm2]" : str(max_stress_optimized),
             }
 
 

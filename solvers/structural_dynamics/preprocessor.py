@@ -6,8 +6,8 @@ from dataobjects.node import Node
 class Preprocessor():
     
     def __init__(self, chordLength = 1.12, wing_length = 3.61, 
-                 elementMaterial = None , elementSurface = 0.0031, 
-                 numberOfAirfoils = 11, forceValue = 0.5*1e3):
+                 elementMaterial = None , elementSurface = 0.003137, 
+                 numberOfAirfoils = 11, forceValue = 500):
         
         self.chordLength = chordLength
         self.wing_length = wing_length

@@ -10,8 +10,6 @@ from dataobjects.structural_properties import Structural_Properties
 class Solver():
     
     def __init__(self, preprocessor = Preprocessor(), 
-                 barElement = BarElement(radius = 0.0316), 
-                 beamElement = BeamElement(radius = 0.0316), 
                  simulationTime = 5, timeStep = 0.05):
         
         self.preprocessor = preprocessor
@@ -19,9 +17,6 @@ class Solver():
         self.stiffnessFullMatrix = np.zeros([self.preprocessor.totalDofs, self.preprocessor.totalDofs])
         self.massFullMatrix = np.zeros([self.preprocessor.totalDofs, self.preprocessor.totalDofs])
         self.forceVector = np.zeros([self.preprocessor.totalDofs, 1])
-        
-        self.barElement = barElement
-        self.beamElement = beamElement
         
         self.K = None # Stiffness matrix
         self.M = None # Mass matrix
@@ -160,7 +155,7 @@ class Solver():
 
         # Calculate K
         K = np.zeros((12, 12))
-        if is_reduced:
+        if not is_reduced:
             xi = [-1 / np.sqrt(3), 1 / np.sqrt(3)]
             w = [1, 1]
             for i, xi_val in enumerate(xi):
