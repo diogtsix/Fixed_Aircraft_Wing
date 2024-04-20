@@ -75,6 +75,9 @@ class MainWindow(QMainWindow):
         self.setup_choice_buttons_results()
         
         
+        # Setup button for stress visualization option
+        self.setup_visualize_stresses_button()
+
         
         # Add the matplotlib FigureCanvas
         self.canvas = FigureCanvas(Figure(figsize=(5, 3)))
@@ -111,7 +114,9 @@ class MainWindow(QMainWindow):
             elif self.real_time_simulation_button.isChecked():
                 # Run Real Time simulation
                 
-                self.real_time_sim(scalingFactor, solve)
+                visualize_stresses = self.stress_visualization_button.isChecked()
+                
+                self.real_time_sim(scalingFactor, solve, visualize_stresses)
                 
                 
         except Exception as e:
@@ -119,10 +124,10 @@ class MainWindow(QMainWindow):
 
 
 
-    def real_time_sim(self, scalingFactor, solve ):
+    def real_time_sim(self, scalingFactor, solve , visualize_stresses):
         
 
-        post = Postprocess(solver=solve, ax_handle = self.canvas)
+        post = Postprocess(solver=solve, ax_handle = self.canvas, visualize_stresses = visualize_stresses)
         self.animation = post.simulation_displacements(scaling_factor= scalingFactor)
       
         #self.canvas.draw()
@@ -217,6 +222,27 @@ class MainWindow(QMainWindow):
 
         # Add the group box to the main parameters layout
         self.parameters_layout.addWidget(self.choice_group_box)    
+        
+        
+        
+    def setup_visualize_stresses_button(self):
+        # Group Box to hold the radio button
+        self.stress_visualize_group_box = QGroupBox("Visualize Stresses")
+        self.stress_visualize_layout = QVBoxLayout()
+        
+        # Radio button for stress visualization
+        self.stress_visualization_button = QRadioButton("Visualize Stresses During Real-Time Simulation")
+        self.stress_visualization_button.setChecked(False)  # Default not checked
+
+        # Add button to the layout
+        self.stress_visualize_layout.addWidget(self.stress_visualization_button)
+
+        # Add the layout to the group box
+        self.stress_visualize_group_box.setLayout(self.stress_visualize_layout)
+
+        # Add the group box to the main parameters layout
+        self.parameters_layout.addWidget(self.stress_visualize_group_box)
+    
     
 def main():
     
