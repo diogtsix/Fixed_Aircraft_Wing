@@ -1,0 +1,10 @@
+deap==1.4.1
+matplotlib==3.7.3
+numpy==1.24.3
+pandas==1.5.3
+PyQt5==5.15.10
+PyQt5_sip==12.13.0
+pyswarm==0.6
+scikit_learn==1.2.2
+scipy==1.13.0
+tensorflow==2.13.1 
