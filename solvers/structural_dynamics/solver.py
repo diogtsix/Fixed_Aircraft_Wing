@@ -443,8 +443,10 @@ class Solver():
                     ex = deltaL/undeformed_length
                     sx = elastic_modulus * ex
                     
-                    structural_properties[index, ii] = Structural_Properties(ex = ex, sx = sx)
-                
+                    sigma_von_mises = sx
+                    structural_properties[index, ii] = Structural_Properties(ex = ex, sx = sx,
+                                                                             s_von_mises = sigma_von_mises)
+
                 elif kind ==2:
                     
                     disp_first_node = global_displacements[node_1.dof_id - 1, ii]
@@ -464,9 +466,9 @@ class Solver():
                     deformations = B @ node_disp
                     stresses = elastic_modulus * deformations
 
-                    
+                    sigma_von_mises = np.sqrt(((stresses[0] - stresses[1])**2 + (stresses[1] - stresses[2])**2 + (stresses[2] - stresses[0])**2 + 6 * (stresses[3]**2 + stresses[4]**2 +stresses[5]**2))/2)
                     structural_properties[index, ii] = Structural_Properties(ex = deformations[0], ey = deformations[1], ez = deformations[2],
-                                                                             sx = stresses[0], sy = stresses[1], sz = stresses[2])
+                                                                             sx = stresses[0], sy = stresses[1], sz = stresses[2], s_von_mises = sigma_von_mises)
                     
                     self.structural_properties = structural_properties
 
