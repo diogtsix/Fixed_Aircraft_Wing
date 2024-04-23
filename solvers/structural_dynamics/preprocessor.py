@@ -29,9 +29,8 @@ class Preprocessor():
         self.elementsAirfoil = elements_airfoil
           
         self.nodeMatrix = self.createWingNodeMatrix()
-        self.addForces()
-        
         self.elementMatrix = self.createWingElementMatrix()
+        self.addForces()
         
         self.totalNodes = len(self.nodeMatrix)
         self.totalDofs = self.totalNodes*6
@@ -193,6 +192,21 @@ class Preprocessor():
             self.nodeMatrix[10 + node_index].force = np.array([0, -self.forceValue, 0, 0 , 0, 0])
             node_index += 12
             
+        # Add gravitational loading for each node based on the connected elements on that node
+        for index, element in enumerate(self.elementMatrix):
+            node_1_id = element[0].node_id
+            node_2_id = element[1].node_id
+            density  = element[3].density
+            length = element[5]
+            surface = element[4]
+            
+            mass = density * length *surface
+            weight = mass * 9.81
+            
+            # Add on each element node hald the weight value 
+            self.nodeMatrix[node_1_id - 1].force = self.nodeMatrix[node_1_id - 1].force + np.array([0, -weight/2, 0, 0 , 0, 0])
+            self.nodeMatrix[node_2_id - 1].force = self.nodeMatrix[node_2_id - 1].force + np.array([0, -weight/2, 0, 0 , 0, 0])
+
     def boundaryConditions(self):
           
         # Find Indexes for the matrices where the rigid dofs are [4 5 10 11]. Each node has 6 dofs so in total we want 24 indexes
