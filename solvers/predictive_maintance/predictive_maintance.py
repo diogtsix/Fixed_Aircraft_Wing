@@ -13,27 +13,34 @@ from solvers.structural_dynamics.solver import Solver
 from dataobjects.material import Material
 class Predictive_maintance():
     
-    def __init__(self):
+    def __init__(self, elasticModuluts = 73100000000,
+                 poissonRation = 0.33,
+                 density = 2780,
+                 shearModulus = 28000000000,
+                 C = 7.9927,
+                 m = 0.235,
+                 loads = np.array([500/2 , 500 , 2*500, 3*500, 4*500, 5*500, 6*500]),
+                 cycles = np.array([3000, 7000, 4000, 1000, 5000 ,1000, 3000]),
+                 material_Name = 'AA 7075'):
         
         """
-        One block of loading is considered to represent 100 flights of 4 hours each = 400 hours each block. 
+        One block of loading represents 100 flights of 4 hours each = 400 hours each block. 
         Material is choosen = Cu-Mg Aluminum Alloys like AA2024-T351
         """
         # Properties for Material  : Cu-Mg Aluminum Alloys like AA2024-T351
-        self.element_material = Material(id = 1, elasticModulus = 73100000000,
-                                         poissonRatio=0.33, density = 2780,
-                                         shearModulus=28000000000, 
-                                         C = 7.9927, # C = 9.5 for stress units equal to MPa
-                                         m = 0.235) # This is a median value for m
+        self.element_material = Material(id = 1, elasticModulus = elasticModuluts,
+                                         poissonRatio=poissonRation, density = density,
+                                         shearModulus=shearModulus, 
+                                         C = C, # C = 9.5 for stress units equal to MPa
+                                         m = m) # This is a median value for m
         
+        self.material_Name = material_Name
         # Load Structural Dynamics Model 
         preprocessorObj = Preprocessor(elementMaterial= self.element_material)
         self.solver = Solver(preprocessor=preprocessorObj) 
         
-        self.f0 = 500
-        f0 = self.f0
-        self.loading_conditions_table = np.array([f0/2 , f0 , 2*f0, 3*f0, 4*f0, 5*f0, 6*f0])
-        self.loading_cycles_number_table = np.array([1000, 500, 600, 100, 30 ,5, 15])
+        self.loading_conditions_table = loads
+        self.loading_cycles_number_table = cycles
         
         self.alternation_stress_table = [] 
         self.mean_stress_table = []
@@ -44,14 +51,14 @@ class Predictive_maintance():
         self.Nf = [] 
         
         self.accumulated_damage = [] 
-        self.accumulated_damage_total = None 
+        self.accumulated_damage_total = 0 
         
         self.crack_condition = None 
         
         self.number_of_blocks_to_failure = None 
         self.fatigue_safe_life_hours = None 
         
-
+        self.results = None 
         
         self.fatigue_analysis()
 
@@ -59,13 +66,26 @@ class Predictive_maintance():
         
         self.create_stress_tables()
         
-        self.create_S_N_plots()
+        # self.create_S_N_plots()
         
         self.calc_cycles()
         
         self.accumulated_damage_calc()
         
         self.miner_rule()
+        
+        sm = [arr.item() if arr.size == 1 else arr for arr in self.mean_stress_table]  # Extract scalars from numpy arrays
+        sa = [arr.item() if arr.size == 1 else arr for arr in self.alternation_stress_table]
+        lognf = [arr.item() if arr.size == 1 else arr for arr in self.log_Nf]
+        nf = [arr.item() if arr.size == 1 else arr for arr in self.Nf]
+        acuu_damage = [arr.item() if arr.size == 1 else arr for arr in self.accumulated_damage]
+
+        min_length = len(sm)
+
+        results = list(zip(sm[:min_length], sa[:min_length], lognf[:min_length], nf[:min_length], acuu_damage[:min_length]))
+    
+        self.results = results
+        
 
     def create_stress_tables(self):
                 
@@ -98,14 +118,16 @@ class Predictive_maintance():
         cycles_to_failure = self.calc_cycles_to_failure(stress_amp, stress_mean=0)
         
         
-        plt.figure()
-        plt.plot( cycles_to_failure, stress_amp,  label = "AA 7075")
-        plt.ylabel('Alternating Stress (MPa)')
-        plt.xlabel('Cycles to Failure (N)')
-        plt.title('S-N Curve for Aluminum Alloy 7075')
-        plt.grid(True, which="both", ls="--")
-        plt.legend()
-        plt.show()
+        # Create a Figure object
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(cycles_to_failure, stress_amp, label="Material: " + self.material_Name)
+        ax.set_ylabel('Alternating Stress (MPa)')
+        ax.set_xlabel('Cycles to Failure (N)')
+        ax.set_title('S-N Curve for Aluminum Alloy 7075')
+        ax.grid(True, which="both", ls="--")
+        ax.legend()
+        return fig
                 
     def calc_cycles_to_failure(self, stress_amp, stress_mean):
         
@@ -150,7 +172,7 @@ class Predictive_maintance():
             cycle =  self.calc_cycles_to_failure(stress_amp= stress/1e6 , 
                                                  stress_mean = stress_mean / 1e6)
             
-            if cycle < 5*1e6 : 
+            if cycle < 5*1e7 : 
                 self.Nf.append(cycle)
             else :
                 self.Nf.append('inf')   
@@ -177,11 +199,10 @@ class Predictive_maintance():
         
         self.number_of_blocks_to_failure = 1/ self.accumulated_damage_total
         self.fatigue_safe_life_hours = 400 * self.number_of_blocks_to_failure
-                        
+               
 def main():
     
     a = Predictive_maintance()
-    a = 2
 
 if __name__== "__main__":
     main()
