@@ -2,7 +2,7 @@
 
 ## Overview 
 
-This project focuses on **Solving**, **Modelling** and **Simulating** the Structural Dynamics and the Structural Optimization of a Fixed aircraft's Wing. It aims to the design of a full software architecture and the implementation of advanced engineering methods for real structures. All the project have been developed in Python with OOP. 
+This project focuses on **Solving**, **Modelling** and **Simulating** the Structural Dynamics,  Structural Optimization and Fatigue Analysis for predictive maintance of a Fixed aircraft's Wing. It aims to the design of a full software architecture and the implementation of advanced engineering methods for real structures. All the project have been developed in Python with OOP. 
 
 The project consist 3 distinct components and the interaction between those two : 
 
