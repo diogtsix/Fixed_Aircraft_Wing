@@ -4,10 +4,11 @@
 
 This project focuses on **Solving**, **Modelling** and **Simulating** the Structural Dynamics and the Structural Optimization of a Fixed aircraft's Wing. It aims to the design of a full software architecture and the implementation of advanced engineering methods for real structures. All the project have been developed in Python with OOP. 
 
-The project consist 2 distinct components and the interaction between those two : 
+The project consist 3 distinct components and the interaction between those two : 
 
 1) **Structural Dynamics**
 2) **Structural Optimization**
+3) **FD&T for Predictive Maintance**
 
 ## **Keywords**
 
@@ -28,6 +29,12 @@ The project consist 2 distinct components and the interaction between those two 
 - Neural Network 
 - Machine Learning 
 - Surrogate ML model Constrained Optimization
+
+- Fatigue Analysis 
+- FD&T
+- Report Generation
+- Miner's Rule 
+- S-N Graph
 
 - GUI Design 
 - Interactive GUI Design 
@@ -90,6 +97,19 @@ All the calcualtions and functionalities are inside the weight_optimization file
 
 Through the otpimization_GUI the user can set the parametrs for the Genetic algorithm, number of samples and discrete surface values for optimization. After optimization is finished report on the right of the same window will appear. 
 
+## **FD&T for Predictive Maintance**
+
+Conducted Fatigue Analysis and life safety prediction based on specific Material and Loading conditions, by using Miner's Rule. 
+
+## Program Components
+
+The basic components for FD&T are : 1) predictive_maintance.py, 2) predictive_maintance_GUI.py
+
+All calculations and functionalities are carried out through the predictive maintance class. 
+
+Through the GUI user is alowed to provide 7 different types of cyclic load, and number of loadings and material Characteristics. One block of loading represents 100 flights of 4 hours each. 
+The output of the module are the S-N material Graph and an analytical report regarding the number of cycles, accumulated damage, damage tolerance, number of cycles till crack initiation and flight hours till crack initiation. 
+
 ## **Documentation**
 
 An important componenet of this project is the documentation folder. Inside This folder there are 3 .pdf files: 
@@ -99,6 +119,8 @@ An important componenet of this project is the documentation folder. Inside This
 2) Fixed_Wing_Structural_Dynamics : The Structural Dynamics model which was developed by me in an older project. There you can find results and plots regarding the wing behaviour under specific loading. This report is considered as a benchmark for our model and it is the early steps I did around the implementation of wing's structural dynamics. 
 
 3) Structural_Optimization_for_fixed_Wing : This document contains some theoritical background for the methods we have implemented. In this pdf you can also find our optimization project architecture and some code snippets. 
+
+4) Technical_Documentation_for_Fatigue_Analysis_Module : This document contains theoritical brackground regarding Fatigue Analysis. Also works as a guide through the predictive maintance module of this project. 
 
 In general the above reports can guide you through the whole engineering methods and problem we faced and solved in this project. 
 
