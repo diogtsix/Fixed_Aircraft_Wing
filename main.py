@@ -18,8 +18,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
         # Create layout
-        layout = QVBoxLayout()
-
+        # layout = QVBoxLayout()
+        layout = QVBoxLayout(central_widget)
+        
         # Create buttons
         btn_structural_dynamics = QPushButton("Fixed Wing Structural Dynamics Analysis")
         btn_optimization = QPushButton("Fixed Wing Structural Optimization")
@@ -36,7 +37,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(btn_predictive_maintance)
         
         # Set layout to central widget
-        central_widget.setLayout(layout)
+        # central_widget.setLayout(layout)
 
     def run_structural_dynamics(self):
     

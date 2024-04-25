@@ -108,26 +108,27 @@ class Solver():
                             element_material, element_surface):
         
         material = element_material
-                
+        
         L = np.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
         cx = (x2 - x1) / L
         cy = (y2 - y1) / L
         cz = (z2 - z1) / L
 
         T = np.array([[cx, cy, cz, 0, 0, 0],
-                    [0, 0, 0, cx, cy, cz]])
+                        [0, 0, 0, cx, cy, cz]])
 
         KLocal = (material.elasticModulus * element_surface/ L) * np.array([[1, -1],
-                                                     [-1, 1]])
-    
-        K = T.T @ KLocal @ T  # @ is the matrix multiplication operator in Python
+                                                                            [-1, 1]])
+
+        # Transform the local stiffness matrix to global coordinates            
+        K  = np.dot(np.dot(T.T, KLocal), T)
 
         MLocal = (1/6) * material.density * element_surface * L * np.array([[2, 0, 0, 1, 0, 0],
-                                                                [0, 2, 0, 0, 1, 0],
-                                                                [0, 0, 2, 0, 0, 1],
-                                                                [1, 0, 0, 2, 0, 0],
-                                                                [0, 1, 0, 0, 2, 0],
-                                                                [0, 0, 1, 0, 0, 2]])
+                                                                            [0, 2, 0, 0, 1, 0],
+                                                                            [0, 0, 2, 0, 0, 1],
+                                                                            [1, 0, 0, 2, 0, 0],
+                                                                            [0, 1, 0, 0, 2, 0],
+                                                                            [0, 0, 1, 0, 0, 2]])
 
         M = MLocal
 
@@ -194,13 +195,15 @@ class Solver():
         MFull = self.massFullMatrix
         KFull = self.stiffnessFullMatrix
         
-        for jj in range(num_of_dofs):
-            for kk in range(num_of_dofs):
-                
-                KFull[LG[jj], LG[kk]] = KFull[LG[jj], LG[kk]] + K[jj, kk]
-                MFull[LG[jj], LG[kk]] = MFull[LG[jj], LG[kk]] + M[jj, kk]
-                
+        # Indexing for LG array
+        LG_grid = LG[:, np.newaxis]
+        # Add corresponding submatrices to full matrices
+        KFull[LG_grid, LG_grid.T] += K
+        MFull[LG_grid, LG_grid.T] += M
+    
         return KFull, MFull
+    
+    
    
     
     def createForceVector(self):
@@ -208,18 +211,10 @@ class Solver():
         nodeMatrix = self.preprocessor.nodeMatrix
         Ffull = self.forceVector
         
-        for node in nodeMatrix:
-            
-            if any(node.force):
-                
-                Ffull[node.dof_id[0] - 1] = node.force[0]
-                Ffull[node.dof_id[1] - 1] = node.force[1]
-                Ffull[node.dof_id[2] - 1] = node.force[2]
-                Ffull[node.dof_id[3] - 1] = node.force[3]
-                Ffull[node.dof_id[4] - 1] = node.force[4]
-                Ffull[node.dof_id[5] - 1] = node.force[5]
-    
-    
+        for node in nodeMatrix:   
+            if any(node.force):    
+                Ffull[node.dof_id - 1] = node.force.reshape(-1)[:, np.newaxis]
+
         return Ffull
     
     
@@ -263,10 +258,9 @@ class Solver():
         x3 = x3 / np.linalg.norm(x3)
     
         # Create transformation matrix 't' from normalized vectors
-        t = np.vstack([x1, x2, x3])  # vstack stacks arrays in sequence vertically (row wise)
-
+        t = np.array([x1, x2, x3])
         # Populate the transformation matrix 'T'
-        T[0:3, 0:3] = t
+        T[:3, :3] = t
         T[3:6, 3:6] = t
         T[6:9, 6:9] = t
         T[9:12, 9:12] = t
@@ -408,11 +402,15 @@ class Solver():
 
         elif self.x_Newmark is not None:
             displacements = self.x_Newmark
-            
+        else:
+            raise ValueError("Neither x_eigenAnalysis nor x_Newmark is available")
+    
             
         dofsNumber = self.preprocessor.totalDofs
         totalElements =  self.preprocessor.totalElements
         n_steps = displacements.shape[1]
+        
+        # Pre-allocate array for efficiency
         structural_properties = np.empty((totalElements, n_steps), dtype=object)
         
         global_displacements = np.zeros([dofsNumber, n_steps])
@@ -422,7 +420,7 @@ class Solver():
         
         for ii in range(n_steps):
             
-            for index, element in enumerate(self.preprocessor.elementMatrix, start=0):
+            for index, element in enumerate(self.preprocessor.elementMatrix):
                 node_1, node_2, kind, material, surface, undeformed_length = element
                 elastic_modulus = material.elasticModulus
 
@@ -462,8 +460,8 @@ class Solver():
                                     
                     _, B = self.GetNB(0, deforemed_length)
                     
-                    node_disp = np.vstack((disp_first_node, disp_second_node)).reshape(-1, 1)
-                    deformations = B @ node_disp
+                    node_disp = np.vstack((disp_first_node, disp_second_node))
+                    deformations = B @ node_disp.flatten()
                     stresses = elastic_modulus * deformations
 
                     sigma_von_mises = np.sqrt(((stresses[0] - stresses[1])**2 + (stresses[1] - stresses[2])**2 + (stresses[2] - stresses[0])**2 + 6 * (stresses[3]**2 + stresses[4]**2 +stresses[5]**2))/2)
@@ -481,8 +479,8 @@ class Solver():
             
         dofsNumber = self.preprocessor.totalDofs
         totalElements =  self.preprocessor.totalElements
-        n_steps = 1
-        structural_properties = np.empty((totalElements, n_steps), dtype=object)
+
+        structural_properties = np.empty((totalElements), dtype=object)
         
         global_displacements = np.zeros([dofsNumber, 1])
         remainingDofs = np.setdiff1d(np.arange(dofsNumber), self.preprocessor.dofsToDelete - 1) 
@@ -490,7 +488,7 @@ class Solver():
 
         
             
-        for index, element in enumerate(self.preprocessor.elementMatrix, start=0):
+        for index, element in enumerate(self.preprocessor.elementMatrix):
             node_1, node_2, kind, material, surface, undeformed_length = element
             elastic_modulus = material.elasticModulus
 
@@ -528,8 +526,8 @@ class Solver():
                                     
                 _, B = self.GetNB(0, deforemed_length)
                     
-                node_disp = np.vstack((disp_first_node, disp_second_node)).reshape(-1, 1)
-                deformations = B @ node_disp
+                node_disp = np.vstack((disp_first_node, disp_second_node))
+                deformations = B @ node_disp.flatten()
                 stresses = elastic_modulus * deformations
 
                     

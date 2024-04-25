@@ -167,6 +167,7 @@ class Postprocess():
     
     def update_plot(self, step, ax, global_displacements, nodeMatrix, elementMatrix, structuralProperties):
         ax.clear()
+        node_positions = np.array([node.coords for node in nodeMatrix])
         
         if not self.visualize_stresses:
         # Iterate through each element and plot it using the updated positions
@@ -175,13 +176,10 @@ class Postprocess():
                 start_dofs = self.extract_translational_dofs_for_node(global_displacements, start_node.node_id)[:, step]
                 end_dofs = self.extract_translational_dofs_for_node(global_displacements, end_node.node_id)[:, step]
                 
-                start_pos = nodeMatrix[start_node.node_id - 1].coords + start_dofs
-                end_pos = nodeMatrix[end_node.node_id - 1].coords + end_dofs
+                start_pos = node_positions[start_node.node_id - 1] + start_dofs
+                end_pos = node_positions[end_node.node_id - 1] + end_dofs
                 
-                if kind == 1:
-                    color = 'b-'
-                elif kind == 2:
-                    color = 'r-'
+                color = 'b-' if kind == 1 else 'r-'
                     
                 ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], [start_pos[2], end_pos[2]], color, marker='o', markersize=5, linewidth=1.5)
 
@@ -197,14 +195,12 @@ class Postprocess():
             fixed_min_stress = np.min(final_stress_values)  # or a predetermined fixed minimum
             fixed_max_stress = np.max(final_stress_values)
         
-            norm = plt.Normalize(vmin=np.min(fixed_min_stress), vmax=np.max(fixed_max_stress))
-
-            # norm = plt.Normalize(vmin=np.min(stress_values), vmax=np.max(stress_values))
+            norm = plt.Normalize(vmin=fixed_min_stress, vmax=fixed_max_stress)
             cmap = cm.jet     
             
             # Create a ScalarMappable with the normalization and colormap
-            sm = cm.ScalarMappable(cmap=cmap, norm=norm)
-            sm.set_array([])
+            # sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+            # sm.set_array([])
         
         
            
@@ -213,8 +209,8 @@ class Postprocess():
                 start_dofs = self.extract_translational_dofs_for_node(global_displacements, start_node.node_id)[:, step]
                 end_dofs = self.extract_translational_dofs_for_node(global_displacements, end_node.node_id)[:, step]
                 
-                start_pos = nodeMatrix[start_node.node_id - 1].coords + start_dofs
-                end_pos = nodeMatrix[end_node.node_id - 1].coords + end_dofs
+                start_pos = node_positions[start_node.node_id - 1] + start_dofs
+                end_pos = node_positions[end_node.node_id - 1] + end_dofs
                 
                 # Get stress value for color mapping
                 stress_value = stress_values[i]

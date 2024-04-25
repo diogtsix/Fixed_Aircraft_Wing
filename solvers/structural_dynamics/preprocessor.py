@@ -11,29 +11,20 @@ class Preprocessor():
         
         self.chordLength = chordLength
         self.wing_length = wing_length
-        self.elementMaterial = elementMaterial
+        self.elementMaterial = elementMaterial or Material()
         self.elementSurface = elementSurface
         self.numberOfAirfoils = numberOfAirfoils
         self.forceValue = forceValue
         self.dofsToDelete = self.boundaryConditions()
 
-        
-        if elementMaterial is None:
-            self.elementMaterial = Material()  # Assume Material() creates a default material
-        else:
-            self.elementMaterial = elementMaterial
-        
-        nodes_airfoil, elements_airfoil = naca2D(chordLength, plotAirfoil = False)
-        
-        self.nodesAirfoil = nodes_airfoil
-        self.elementsAirfoil = elements_airfoil
+        self.nodesAirfoil, self.elementsAirfoil = naca2D(chordLength, plotAirfoil=False)
           
         self.nodeMatrix = self.createWingNodeMatrix()
         self.elementMatrix = self.createWingElementMatrix()
         self.addForces()
         
         self.totalNodes = len(self.nodeMatrix)
-        self.totalDofs = self.totalNodes*6
+        self.totalDofs = self.totalNodes * 6
         self.totalElements = len(self.elementMatrix)
     
     
@@ -46,11 +37,7 @@ class Preprocessor():
             d = self.wing_length/(self.numberOfAirfoils - 1)
         else :
             d = 0
-            
-        counterNodes = 0
-        counterDofs = 1
-        
-        # Initialize an empty list to store the wing nodes
+
         nodesWing = []
         nodeID = 1
 
@@ -59,17 +46,12 @@ class Preprocessor():
         for i in range(self.numberOfAirfoils):
             for j in range(12):  # 12 nodes per airfoil
                 node = airfoilNodeMatrix[j]
-                new_coords = np.array([node.coords[0], node.coords[1], (i * d)])  # Update Z coordinate
-                new_dof_id = np.arange(counterDofs, counterDofs + 6)  # Update dof_ids
-        
-                # Create a new Node object for the wing node
-                new_node = Node(coords=new_coords, dof_id=new_dof_id, node_id = nodeID)
+                new_coords = np.array([node.coords[0], node.coords[1], (i * d)])
+                new_dof_id = np.arange(nodeID * 6 - 5, nodeID * 6 + 1)
+                new_node = Node(coords=new_coords, dof_id=new_dof_id, node_id=nodeID)
                 nodesWing.append(new_node)
         
-                # Update counters
-                counterDofs += 6
                 nodeID += 1
-            counterNodes += 12
         return nodesWing
     
     def createAirfoilNodeMatrix(self):
@@ -129,64 +111,55 @@ class Preprocessor():
         # Initialize an empty list for wing elements
         elementsWing = []
 
-        # Helper function to find a Node's new global index after replication across airfoils
-        def get_global_node(node_id, airfoil_index, nodes_per_airfoil):
-            # Adjust node_id for zero-based indexing and calculate global index
-            return (node_id - 1) + airfoil_index * nodes_per_airfoil
-
         nodes_per_airfoil = len(self.nodeMatrix) // self.numberOfAirfoils  # Assuming evenly distributed nodes
 
-        # Iterate through airfoils to replicate elements
         for airfoil_index in range(self.numberOfAirfoils):
             for i, element in enumerate(self.elementsAirfoil):
                 node_id_1, node_id_2, _ = element
 
                 # Calculate global node IDs
-                global_node_id_1 = get_global_node(node_id_1, airfoil_index, nodes_per_airfoil)
-                global_node_id_2 = get_global_node(node_id_2, airfoil_index, nodes_per_airfoil)
+                global_node_id_1 = (node_id_1 - 1) + airfoil_index * nodes_per_airfoil
+                global_node_id_2 = (node_id_2 - 1) + airfoil_index * nodes_per_airfoil
 
-                # Determine the element kind based on its index within the airfoil
-                # Assuming the first 12 elements are of one kind (e.g., beams) and the rest are another (e.g., bars)
                 kind = 2 if i < 12 else 1
 
                 # Append new element with global node IDs and original kind
                 elementsWing.append([global_node_id_1, global_node_id_2, kind])
                 
                 
-            # Add transverse beam elements between adjacent airfoils
-        transverse_nodes = [4, 5, 10, 11]  # Based on your MATLAB code
+        transverse_nodes = [4, 5, 10, 11]  
+        
         if self.numberOfAirfoils > 1:
             for airfoil_index in range(self.numberOfAirfoils - 1):
                 for node_index in transverse_nodes:
-                    node_id_1 = get_global_node(node_index, airfoil_index, nodes_per_airfoil)
-                    node_id_2 = get_global_node(node_index, airfoil_index + 1, nodes_per_airfoil)
+                    node_id_1 = (node_index - 1) + airfoil_index * nodes_per_airfoil
+                    node_id_2 = (node_index - 1) + (airfoil_index + 1) * nodes_per_airfoil
 
                     # Transverse beams are kind 2 (assuming beams)
                     elementsWing.append([node_id_1, node_id_2, 2])
         
-        # Now, elementsWing contains global indices for start and end nodes of each element, and the element type
-        # To build the wingElementMatrix with Node objects, map global indices back to Node objects
         wingElementMatrix = []
-        
-        material = self.elementMaterial
-        surface = self.elementSurface
+
                 
         for global_node_id_1, global_node_id_2, kind in elementsWing:
-            start_node = self.nodeMatrix[global_node_id_1]  # Directly use global index to access node
+            
+            start_node = self.nodeMatrix[global_node_id_1]  
             end_node = self.nodeMatrix[global_node_id_2]
             
             #Calc elements length
-            diff = self.nodeMatrix[global_node_id_1].coords - self.nodeMatrix[global_node_id_2].coords
+            diff = start_node.coords - end_node.coords
+            
             length = np.sqrt(np.sum(diff**2))
-            # Append the Node objects and kind to the matrix
-            wingElementMatrix.append([start_node, end_node, kind, material, surface, length])
+            
+            
+            wingElementMatrix.append([start_node, end_node, kind, self.elementMaterial, self.elementSurface, length])
 
         return wingElementMatrix
 
     def addForces(self):
         
         node_index = 0
-        for ii in range(self.numberOfAirfoils):
+        for _ in range(self.numberOfAirfoils):
             
             self.nodeMatrix[4 + node_index].force = np.array([0, -self.forceValue, 0, 0 , 0, 0])
             self.nodeMatrix[10 + node_index].force = np.array([0, -self.forceValue, 0, 0 , 0, 0])
