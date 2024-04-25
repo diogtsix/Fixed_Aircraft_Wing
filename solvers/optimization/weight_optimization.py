@@ -183,6 +183,12 @@ class Weight_Optimization():
 
             numberOfSamples= self.numberOfSamples # 30000 might be better to avoid overfitting
             
+            # Create folder if don't exists
+            if not os.path.exists('datasets'):
+                os.mkdir('datasets')
+            if not os.path.exists('ML_models'):
+                os.mkdir('ML_models')
+                
             filename = f'dataset_sampleNumber_{numberOfSamples}.csv'
             file_path = os.path.join(os.getcwd(), 'datasets', filename)
 
@@ -344,8 +350,8 @@ class Weight_Optimization():
             "Optimized material ids": ', '.join(map(str, best_material)),
             "Optimal Weight [kg]]": str(best_individual.fitness.values),
             "Total Generations": str(log.select("gen")[-1]),
-            "Max Stress [N/m2]" : str(max_stress),
-            "Max Stress Optimized [N/m2]" : str(max_stress_optimized),
+            "Max Stress [N/mm2]" : str(max_stress),
+            "Max Stress Optimized [N/mm2]" : str(max_stress_optimized),
             }
 
 

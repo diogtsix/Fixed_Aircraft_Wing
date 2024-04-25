@@ -1,16 +1,18 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
-
+from matplotlib import cm
 class Postprocess():
     
-    def __init__(self, solver, ax_handle = None ):
+    def __init__(self, solver, ax_handle = None , visualize_stresses = False):
         
         
         self.solver = solver
         self.preprocessor = solver.preprocessor
         self.ax = ax_handle
         self.animation = None
+        self.cbar = None
+        self.visualize_stresses = visualize_stresses
         
 
     def plotEigenModes(self, numberOfModes, scaling_factor = 5):
@@ -147,9 +149,12 @@ class Postprocess():
             fig.clf()
             ax = fig.add_subplot(111, projection='3d')
             
+
+            
         ani = FuncAnimation(fig, self.update_plot, frames=range(timeSteps.shape[0]), 
                             fargs=(ax, global_displacements, 
-                                   self.solver.preprocessor.nodeMatrix, self.solver.preprocessor.elementMatrix),
+                                   self.solver.preprocessor.nodeMatrix, self.solver.preprocessor.elementMatrix,
+                                   self.solver.structural_properties),
                             interval=100)
         
 
@@ -160,27 +165,70 @@ class Postprocess():
             
         return ani
     
-    def update_plot(self, step, ax, global_displacements, nodeMatrix, elementMatrix):
+    def update_plot(self, step, ax, global_displacements, nodeMatrix, elementMatrix, structuralProperties):
         ax.clear()
-
+        node_positions = np.array([node.coords for node in nodeMatrix])
+        
+        if not self.visualize_stresses:
         # Iterate through each element and plot it using the updated positions
-        for element in elementMatrix:
-            start_node, end_node, kind, _, _, _ = element
-            start_dofs = self.extract_translational_dofs_for_node(global_displacements, start_node.node_id)[:, step]
-            end_dofs = self.extract_translational_dofs_for_node(global_displacements, end_node.node_id)[:, step]
-            
-            start_pos = nodeMatrix[start_node.node_id - 1].coords + start_dofs
-            end_pos = nodeMatrix[end_node.node_id - 1].coords + end_dofs
-            
-            if kind == 1:
-                color = 'b-'
-            elif kind == 2:
-                color = 'r-'
+            for i, element in enumerate(elementMatrix):
+                start_node, end_node, kind, _, _, _ = element
+                start_dofs = self.extract_translational_dofs_for_node(global_displacements, start_node.node_id)[:, step]
+                end_dofs = self.extract_translational_dofs_for_node(global_displacements, end_node.node_id)[:, step]
                 
-            ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], [start_pos[2], end_pos[2]], color, marker='o', markersize=5, linewidth=1.5)
+                start_pos = node_positions[start_node.node_id - 1] + start_dofs
+                end_pos = node_positions[end_node.node_id - 1] + end_dofs
+                
+                color = 'b-' if kind == 1 else 'r-'
+                    
+                ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], [start_pos[2], end_pos[2]], color, marker='o', markersize=5, linewidth=1.5)
+
+        else:
             
-       # ax.set_title(f'Time: {timeSteps[step]:.2f} s')
-  
+            
+            stress_array = structuralProperties[:, step]
+            stress_values = np.array([el.sx.item() for el in stress_array])
+            
+            final_stress_array = structuralProperties[:, -1]
+            final_stress_values = np.array([el.sx.item() for el in final_stress_array])        
+            
+            fixed_min_stress = np.min(final_stress_values)  # or a predetermined fixed minimum
+            fixed_max_stress = np.max(final_stress_values)
+        
+            norm = plt.Normalize(vmin=fixed_min_stress, vmax=fixed_max_stress)
+            cmap = cm.jet     
+            
+            # Create a ScalarMappable with the normalization and colormap
+            # sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+            # sm.set_array([])
+        
+        
+           
+            for i, element in enumerate(elementMatrix):
+                start_node, end_node, kind, _, _, _ = element
+                start_dofs = self.extract_translational_dofs_for_node(global_displacements, start_node.node_id)[:, step]
+                end_dofs = self.extract_translational_dofs_for_node(global_displacements, end_node.node_id)[:, step]
+                
+                start_pos = node_positions[start_node.node_id - 1] + start_dofs
+                end_pos = node_positions[end_node.node_id - 1] + end_dofs
+                
+                # Get stress value for color mapping
+                stress_value = stress_values[i]
+                color = cmap(norm(stress_value))
+                    
+                ax.plot([start_pos[0], end_pos[0]], [start_pos[1], end_pos[1]], [start_pos[2], end_pos[2]], color = color, marker='o', markersize=5, linewidth=1.5)
+    
+                if self.cbar is None or self.cbar.ax not in ax.figure.axes:
+                    mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
+                    mappable.set_array([])
+                    self.cbar = plt.colorbar(mappable, ax=ax, orientation='vertical')
+                    self.cbar.set_label('Sx Magnitude Normalized')
+                else:
+                    self.cbar.mappable.set_cmap(cmap)
+                    self.cbar.mappable.set_norm(norm)
+                    self.cbar.update_normal(self.cbar.mappable)
+    
+                   
 
         ax.set_title('Real Time Translational simulation for Harmonic Loading  F = F0 sin(Ωt) with Ω = 115.28 Hz')
         ax.set_xlabel('X')

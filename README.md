@@ -105,6 +105,8 @@ In general the above reports can guide you through the whole engineering methods
 
 ## **How To Run The Code**
 
+Firstly run "pip install -r requirements.txt" to install the required libraries. 
+
 The running process for this code is fairly simple. You just need to open the **main.py** file, which is located on the higher level for the project, and run it. This file will guide you through the steps. 
 
 A window will appear firstly asking which problem you want to run (Structural Dunamics or Optimization), after this step the specific GUI will appear and you are ready to solve it. It is also possible after finishing let's say the structural Optimization, without closing th windows to conduct also a structural dunamics analysis (for real time simulation etc.), or after running on type of model optimization to run also the second one and the report will display both results for comparison
