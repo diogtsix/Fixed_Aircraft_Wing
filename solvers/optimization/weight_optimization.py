@@ -614,7 +614,7 @@ class Weight_Optimization():
         for prop in Structural_properties:
             
             
-            array_val  = getattr(prop[0], attribute_name, None)
+            array_val  = getattr(prop, attribute_name, None)
             if np.isscalar(array_val):
                 val = array_val
             else:
