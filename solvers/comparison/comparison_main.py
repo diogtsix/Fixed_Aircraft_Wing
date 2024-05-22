@@ -1,6 +1,12 @@
 
 import sys
 import os
+import io
+
+# Set default encoding to UTF-8
+sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding='utf-8')
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 os.environ['PYDEVD_WARN_EVALUATION_TIMEOUT'] = '60'
 
@@ -27,7 +33,8 @@ import torch
 
 class Comparison():
     
-    def __init__(self, preprocessor = Preprocessor(), number_of_samples = 300):
+    def __init__(self, preprocessor = Preprocessor(), number_of_samples = 300, 
+                 LSTM_epochs = 150, KAN_steps = 5, KAN_grid = 17, KAN_k = 7):
         
         self.preprocessor = preprocessor
         self.solver = Solver(preprocessor = self.preprocessor)
@@ -38,6 +45,15 @@ class Comparison():
         self.ARIMA = None
         self.ARIMA_scaler = None
         self.KAN = None
+        self.KAN_scaler = None
+        
+        # Inputs from GUI
+        self.LSTM_epochs = LSTM_epochs
+        self.KAN_steps = KAN_steps
+        self.KAN_grrid = KAN_grid
+        self.KAN_k = KAN_k
+        
+        self.comparison_figure = None 
         
     def create_dataset(self, number_of_samples=5, force_range=(100, 1000), file_path='datasets/displacement_time_series_data.xlsx'):
         # Define the force values range and initialize lists to collect data
@@ -90,7 +106,7 @@ class Comparison():
         
         if not os.path.exists(file_path):
             
-            df = comparison.create_dataset(file_path=file_path, number_of_samples=self.number_of_samples)
+            df = self.create_dataset(file_path=file_path, number_of_samples=self.number_of_samples)
 
         df =  self.get_dataFrame(file_path) # Convert Dataframe into appropriet format
         
@@ -100,7 +116,8 @@ class Comparison():
     
         X_train, X_test, y_train, y_test, scaler = self.preprocess_data(df, test_size=0.2)
         
-        self.LSTM = self.LSTM_model(X_train, y_train, X_test, y_test, epochs=150, batch_size=32)
+        self.LSTM = self.LSTM_model(X_train, y_train, X_test, y_test, epochs=self.LSTM_epochs,
+                                    batch_size=32)
         self.LSTM_scaler = scaler 
         
         self.ARIMA = self.ARIMA_model(y_train, y_test, order=(5, 1, 0))
@@ -132,6 +149,7 @@ class Comparison():
         
         scaler_X = StandardScaler()
         scaler_y = StandardScaler()
+                
         X_train_scaled = scaler_X.fit_transform(X_train)
         y_train_scaled = scaler_y.fit_transform(y_train)
         X_test_scaled = scaler_X.transform(X_test)
@@ -141,11 +159,6 @@ class Comparison():
         y_train_tensor = torch.tensor(y_train_scaled, dtype=torch.float32)
         X_test_tensor = torch.tensor(X_test_scaled, dtype=torch.float32)
         y_test_tensor = torch.tensor(y_test_scaled, dtype=torch.float32)
-    
-        # X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-        # y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
-        # X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-        # y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
         
         dataset = {
             'train_input': X_train_tensor,
@@ -158,12 +171,17 @@ class Comparison():
            # Adjust width and grid parameters as needed
         input_dim = X_train_tensor.shape[1]
         output_dim = y_train_tensor.shape[1]
-        model = KAN(width=[X_train.shape[1], 10, 4,y_train.shape[1]], grid=3, k=3, seed=0, device="cpu")
-    
         
-        _ = model.train(dataset, opt="LBFGS", steps=epochs, lamb=0.01, lamb_entropy=10, lr=0.01,device="cpu",
+    
+        model = KAN(width=[input_dim, 15, 4, 2, output_dim], 
+                    grid=self.KAN_grid, k=self.KAN_k, seed=0, device="cpu") # 0.0113 with 5 iterations
+
+        _ = model.train(dataset, opt="LBFGS", steps=self.KAN_steps, lamb=0.01, lamb_entropy=10, lr=0.05,device="cpu",
                 loss_fn=torch.nn.MSELoss())
         
+        # Prune the model 
+        model = model.prune()
+    
         return model
     
     def ARIMA_model(self, y_train, y_test, order=(5, 1, 0)):
@@ -242,9 +260,9 @@ class Comparison():
         second_half = eigenSolution[half_length:]
         
         # Prepare input for the models
-        input_sequence = np.concatenate(([forceValue], first_half))  # Include the force value
+        input_sequence = np.concatenate(([forceValue], first_half))
         
-        input_sequence_normalized = self.LSTM_scaler.transform([input_sequence])  # Assuming scaler is stored
+        input_sequence_normalized = self.LSTM_scaler.transform([input_sequence])
         
         # Reshape for LSTM prediction
         input_sequence_reshaped = input_sequence_normalized.reshape((1, len(input_sequence_normalized[0]), 1))
@@ -268,7 +286,7 @@ class Comparison():
         mase_kan = mean_absolute_error(second_half, kan_prediction)
 
         # Plot the results
-        plt.figure(figsize=(14, 8))
+        self.comparison_figure = plt.figure(figsize=(14, 8))
         
         # Plot the original time series
         plt.plot(eigenSolution, label='Original Time Series (EigenAnalysis)', color='blue', linestyle='solid')
@@ -294,15 +312,12 @@ class Comparison():
         plt.legend()
         
         # Show plot
-        plt.show()
+        # plt.show()
         
-        
+def main():
+    pass    
         
 # Example usage
 if __name__ == "__main__":
-    comparison = Comparison()
-    comparison.train_models()
-    
-    comparison.plot_models(comparison.LSTM, comparison.ARIMA, 500)
-
+ main()
 
