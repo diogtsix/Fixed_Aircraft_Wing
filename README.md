@@ -122,7 +122,10 @@ The output of the module are the S-N material Graph and an analytical report reg
 ### Overview
 
 The `Comparison` module is designed for the comparison of different machine learning models in predicting structural responses. This module focuses on evaluating the speed and accuracy of various models, particularly LSTM and KAN, in predicting time series data.
+
 An important feature of this module is that it studies the newly invented Kolmogorov-Arnold-Network which follows a different structure than tradional MLPs (Multi - Layer - Perceptrons).
+
+We need to mention that the first time you run the model an xlxs dataset file will be generated. The rest of the times the same dataset will be used for computational efficiency. 
 
 ### Features
 
