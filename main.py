@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout,
 from solvers.structural_dynamics.StructuralDynamics_main import MainWindow as StructuralDynamics
 from solvers.optimization.optimization_GUI import MainWindow as StructuralOptimization
 from solvers.predictive_maintance.predictive_maintance_GUI import MainWindow as PredictiveMaintance
+from solvers.comparison.comparison_GUI import MainWindow as Comparison
 
 class MainWindow(QMainWindow):
     
@@ -25,19 +26,23 @@ class MainWindow(QMainWindow):
         btn_structural_dynamics = QPushButton("Fixed Wing Structural Dynamics Analysis")
         btn_optimization = QPushButton("Fixed Wing Structural Optimization")
         btn_predictive_maintance = QPushButton("Fatigue Damage and Tolerance Analysis")
-        
+        btn_comparison = QPushButton("ML Models Comparison For Wings Response Prediction")
+
+
         # Connect buttons to functions
         btn_structural_dynamics.clicked.connect(self.run_structural_dynamics)
         btn_optimization.clicked.connect(self.run_optimization)
         btn_predictive_maintance.clicked.connect(self.run_predictive_maintance)
+        btn_comparison.clicked.connect(self.run_ML_comparison)
+
         
         # Add buttons to layout
         layout.addWidget(btn_structural_dynamics)
         layout.addWidget(btn_optimization)
         layout.addWidget(btn_predictive_maintance)
+        layout.addWidget(btn_comparison)
         
-        # Set layout to central widget
-        # central_widget.setLayout(layout)
+
 
     def run_structural_dynamics(self):
     
@@ -52,6 +57,12 @@ class MainWindow(QMainWindow):
     def run_predictive_maintance(self):
         self.predictive_maintance_window = PredictiveMaintance()
         self.predictive_maintance_window.show()
+        
+        
+    def run_ML_comparison(self):
+        self.comparison_window = Comparison()
+        self.comparison_window.show()
+        
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()

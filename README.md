@@ -2,13 +2,14 @@
 
 ## Overview 
 
-This project focuses on **Solving**, **Modelling** and **Simulating** the Structural Dynamics,  Structural Optimization and Fatigue Analysis for predictive maintance of a Fixed aircraft's Wing. It aims to the design of a full software architecture and the implementation of advanced engineering methods for real structures. All the project have been developed in Python with OOP. 
+This project focuses on **Solving**, **Modelling** and **Simulating** the Structural Dynamics,  Structural Optimization, Fatigue Analysis for predictive maintance and ML model Comparison for structural response prediction of a Fixed aircraft's Wing. It aims to the design of a full software architecture and the implementation of advanced engineering methods for real structures. All the project have been developed in Python with OOP. 
 
 The project consist 3 distinct components and the interaction between those two : 
 
 1) **Structural Dynamics**
 2) **Structural Optimization**
 3) **FD&T for Predictive Maintance**
+4) **Comparison of ML Models for Structural Response prediction**
 
 ## **Keywords**
 
@@ -35,6 +36,11 @@ The project consist 3 distinct components and the interaction between those two 
 - Report Generation
 - Miner's Rule 
 - S-N Graph
+
+- Time series prediction
+- LSTM
+- ARIMA
+- Kolmogorov-Arnold-Network
 
 - GUI Design 
 - Interactive GUI Design 
@@ -110,9 +116,29 @@ All calculations and functionalities are carried out through the predictive main
 Through the GUI user is alowed to provide 7 different types of cyclic load, and number of loadings and material Characteristics. One block of loading represents 100 flights of 4 hours each. 
 The output of the module are the S-N material Graph and an analytical report regarding the number of cycles, accumulated damage, damage tolerance, number of cycles till crack initiation and flight hours till crack initiation. 
 
-## **Documentation**
 
-An important componenet of this project is the documentation folder. Inside This folder there are 3 .pdf files: 
+## **Comparison of ML Models for Structural Response prediction**
+
+### Overview
+
+The `Comparison` module is designed for the comparison of different machine learning models in predicting structural responses. This module focuses on evaluating the speed and accuracy of various models, particularly LSTM and KAN, in predicting time series data.
+
+An important feature of this module is that it studies the newly invented Kolmogorov-Arnold-Network which follows a different structure than tradional MLPs (Multi - Layer - Perceptrons).
+
+We need to mention that the first time you run the model an xlxs dataset file will be generated. The rest of the times the same dataset will be used for computational efficiency. 
+
+### Features
+
+- **Model Training**: Train various machine learning models including LSTM and Kolmogorov-Arnold-Networks.
+- **Model Evaluation**: Evaluate models based on accuracy and computational efficiency.
+- **Data Preprocessing**: Normalize, shuffle, and split the data into training and testing sets.
+- **Visualization**: Plot the comparison results of different models for better understanding and analysis.
+
+## Program Components
+
+There are 2 basic components which is the comparison_main.py file where all the models are trained and compared and the comparison_GUI which is used for result visualization. 
+
+An important componenet of this project is the documentation folder. Inside This folder there are 5 .pdf files: 
 
 1) Simple_Beam_Structural_Dynamics_Analyis : Theoritical and Fundamental backgroud for Structural Dynamics implementation on a simple beem. Full analytical deriviatin for the equations. 
 
@@ -121,6 +147,8 @@ An important componenet of this project is the documentation folder. Inside This
 3) Structural_Optimization_for_fixed_Wing : This document contains some theoritical background for the methods we have implemented. In this pdf you can also find our optimization project architecture and some code snippets. 
 
 4) Technical_Documentation_for_Fatigue_Analysis_Module : This document contains theoritical brackground regarding Fatigue Analysis. Also works as a guide through the predictive maintance module of this project. 
+
+5) KAN - Kolmogorov-Arnold-Networks : This is the newly published paper that presents for the first time the KAN model. It refers to the structure and efficiency of this model in comparison to traditional MLPs. 
 
 In general the above reports can guide you through the whole engineering methods and problem we faced and solved in this project. 
 
@@ -144,5 +172,8 @@ A window will appear firstly asking which problem you want to run (Structural Du
 7) matplotlib
 8) PyQt5 (for GUI design)
 9) scipy (for the FEM model)
+10) torch
+11) pykan (KAN library)
+12) sklearn
 
-10) pyswarm (For Particle Swarm Optimization, but not yet functional)
+13) pyswarm (For Particle Swarm Optimization, but not yet functional)
