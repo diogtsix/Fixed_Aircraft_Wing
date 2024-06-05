@@ -3,113 +3,91 @@ import gmsh
 import sys
 import os
 
-# Ensure the gmsh module is in the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-def generate_wing_mesh(nodesAirfoil, wing_length, file_path):
-    # Initialize gmsh
+def generate_wing_mesh(nodesAirfoil, wing_length, file_path, visualize_mesh):
+    
     gmsh.initialize()
     gmsh.model.add("wing_surface")
 
-    # Create points in Gmsh from nodesAirfoil
     point_tags = []
     for i, (x, y) in enumerate(nodesAirfoil):
         point_tags.append(gmsh.model.geo.addPoint(x, y, 0, 1.0, i + 1))
 
-    # Create lines connecting these points to form the airfoil shape
     line_tags = []
     num_points = len(nodesAirfoil)
     for i in range(num_points - 1):
         line_tags.append(gmsh.model.geo.addLine(point_tags[i], point_tags[i + 1]))
-    line_tags.append(gmsh.model.geo.addLine(point_tags[-1], point_tags[0]))  # Close the loop
+    line_tags.append(gmsh.model.geo.addLine(point_tags[-1], point_tags[0]))  
 
-    # Debug: Print points and lines
     print(f"Points: {point_tags}")
     print(f"Lines: {line_tags}")
 
-    # Create a curve loop and a plane surface
     curve_loop = gmsh.model.geo.addCurveLoop(line_tags)
     surface = gmsh.model.geo.addPlaneSurface([curve_loop])
 
-    # Define the number of intermediate sections
     num_sections = 10
     dz = wing_length / num_sections
 
-    # Extrude the surface in the z-direction with intermediate sections
     extruded_surfaces = gmsh.model.geo.extrude([(2, surface)], 0, 0, wing_length, [num_sections])
 
-    # Debug: Print extruded surfaces
     print("Extruded surfaces:", extruded_surfaces)
 
-    # Synchronize to ensure the geometry is correct
     gmsh.model.geo.synchronize()
 
-    # Generate 2D mesh
     gmsh.model.mesh.generate(2)
 
-    # Generate 3D mesh
     gmsh.model.mesh.generate(3)
 
-    # Save the mesh to the specified file
-    try:
-        gmsh.write(file_path)
-        print(f"Mesh successfully saved to {file_path}")
-    except Exception as e:
-        print(f"Failed to save mesh: {e}")
 
-    # Check if the file was saved correctly
-    if os.path.exists(file_path):
-        print(f"Mesh successfully saved to {file_path}")
-    else:
-        print(f"Failed to save mesh to {file_path}")
+    gmsh.write(file_path)
 
-    # Visualize the mesh
-    try:
+
+    print(f"Mesh successfully saved to {file_path}")
+
+    
+    if visualize_mesh:
         gmsh.fltk.run()
-    except Exception as e:
-        print(f"Error during visualization: {e}")
 
-    # Print detailed information about elements
     element_types, element_tags, node_tags = gmsh.model.mesh.getElements()
     for i, elem_type in enumerate(element_types):
         print(f"Element type: {elem_type}")
         print(f"Number of elements of this type: {len(element_tags[i])}")
 
-    # Finalize gmsh
     gmsh.finalize()
 
-def load_and_visualize_mesh(file_path):
-    # Initialize gmsh
+def load_and_visualize_mesh(file_path, visualize_mesh):
+    
     gmsh.initialize()
     gmsh.open(file_path)
 
-    # Print general mesh information
+    
     print("Mesh information:")
     print(f"Number of nodes: {gmsh.model.mesh.getNodes()[0].size}")
     print(f"Number of elements: {len(gmsh.model.mesh.getElements()[0])}")
 
-    # Print detailed information about elements
+    
     element_types, element_tags, node_tags = gmsh.model.mesh.getElements()
     for i, elem_type in enumerate(element_types):
         print(f"Element type: {elem_type}")
         print(f"Number of elements of this type: {len(element_tags[i])}")
 
-    # Visualize the mesh
-    try:
+    
+    if visualize_mesh:
         gmsh.fltk.run()
-    except Exception as e:
-        print(f"Error during visualization: {e}")
 
-    # Finalize gmsh
+
     gmsh.finalize()
 
 def main():
     directory = "solvers/fluid_dynamics"
     file_path = os.path.join(directory, "wing_surface_mesh.msh")
 
+    visualize_mesh = True 
+    
     if os.path.exists(file_path):
         print(f"Mesh file {file_path} already exists. Loading and visualizing...")
-        load_and_visualize_mesh(file_path)
+        load_and_visualize_mesh(file_path, visualize_mesh)
     else:
         print(f"Mesh file {file_path} does not exist. Generating mesh...")
         nodesAirfoil = np.array([
@@ -139,8 +117,9 @@ def main():
             [0.916049, -0.011778],
             [1.000000,  0.000000]
         ])
-        wing_length = 10.0  # Set the desired wing length
-        generate_wing_mesh(nodesAirfoil, wing_length, file_path)
+        wing_length = 10.0  
+        
+        generate_wing_mesh(nodesAirfoil, wing_length, file_path, visualize_mesh)
 
 if __name__ == "__main__":
     main()
