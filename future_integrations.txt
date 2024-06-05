@@ -1,0 +1,42 @@
+/Project High level future structure
+|
+├── aeroelastic_analysis
+│   ├── flutter_analysis.py
+│   ├── gust_load_analysis.py
+│   ├── load_case_definition.py
+│   ├── visualization.py
+│   └── __init__.py
+├── multibody_dynamics
+│   ├── multibody_simulation.py
+│   ├── equations_of_motion.py
+│   └── __init__.py
+├── stress_analysis
+│   ├── topology_optimization.py
+│   ├── pre_sizing_analysis.py
+│   ├── crash_impact_analysis.py
+│   ├── detailed_fe_modeling.py
+│   ├── material_properties.py
+│   └── __init__.py
+├── common
+│   ├── structural_elements.py
+│   ├── load_cases.py
+│   ├── mesh_generation.py
+│   ├── utilities.py
+│   └── __init__.py
+├── gui
+│   ├── main.py
+│   ├── aeroelastic_gui.py
+│   ├── multibody_gui.py
+│   ├── stress_analysis_gui.py
+│   └── __init__.py
+├── documentation
+│   ├── README.md
+│   ├── user_guide.pdf
+│   └── technical_documentation.pdf
+├── tests
+│   ├── test_aeroelastic.py
+│   ├── test_multibody.py
+│   ├── test_stress_analysis.py
+│   └── __init__.py
+├── requirements.txt
+└── setup.py

@@ -87,3 +87,7 @@ def plot_airfoil(X, Y):
     plt.title('Airfoil Plot')
     plt.show()
 
+# nodes , elements = naca2D(1.12, True)
+
+# print(nodes)
+# print(elements)
